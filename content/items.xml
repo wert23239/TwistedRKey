@@ -1,0 +1,5 @@
+<items gfxroot="gfx/items/" version="1">
+    <active name="Twisted R Key" description="Restart... from scratch" gfx="collectibles/twisted_r_key.png" type="active" chargetype="normal" maxcharges="0" cooldown="0" passivecache="false" quality="4">
+        <tags>nogreed nochallenge quest</tags>
+    </active>
+</items>

@@ -1,0 +1,10 @@
+<metadata>
+    <name>Twisted R Key</name>
+    <directory>TwistedRKey</directory>
+    <description>A twisted take on R Key - restart the run but lose everything. Beat every endgame boss with unique character setups.</description>
+    <version>1.0.0</version>
+    <visibility>Public</visibility>
+    <tag id="Lua" />
+    <tag id="Items" />
+    <tag id="Challenges" />
+</metadata>
