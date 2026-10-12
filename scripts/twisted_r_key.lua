@@ -81,7 +81,8 @@ function TwistedRKeyItem:OnUseItem(player)
     Isaac.ExecuteCommand("stage 1")
 
     -- Play R Key sound effect
-    SFX_MANAGER:Play(SoundEffect.SOUND_YOURSOULLEFT, 1.0, 0)
+    -- Repentance+ exposes R Key's own sound; older versions use a valid fallback.
+    SFX_MANAGER:Play(SoundEffect.SOUND_R_KEY or SoundEffect.SOUND_POWERUP1, 1.0, 0)
 
     return {
         Discharge = true,

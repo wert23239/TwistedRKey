@@ -47,10 +47,8 @@ Track your progress across these endgame bosses:
 Subscribe on the Steam Workshop (link TBD).
 
 ### Manual
-1. Locate your Isaac mods folder:
-   - **Windows:** `C:\Users\<you>\Documents\My Games\Binding of Isaac Repentance\mods\`
-   - **macOS:** `~/Library/Application Support/Binding of Isaac Repentance/mods/`
-   - **Linux:** `~/.local/share/binding of isaac repentance/mods/`
+1. In Steam, open Isaac's **Manage → Browse local files**. Check `savedatapath.txt` for the game's actual **Modding Data Path**.
+   - Verified Windows Repentance+ location: `<Steam library>\steamapps\common\The Binding of Isaac Rebirth\mods\`.
 2. Copy the `TwistedRKey` folder into the mods directory
 3. Enable the mod in-game from the Mods menu
 
@@ -58,6 +56,17 @@ Subscribe on the Steam Workshop (link TBD).
 
 - **The Binding of Isaac: Repentance** (or Repentance+)
 - **Repentogon** recommended (for enhanced modding API support)
+
+## Verified playtest — October 12, 2026
+
+Windows Repentance+ v1.9.7.17, using a backed-up test save:
+
+- The Lamb's actual boss-room death/clear spawned Twisted R Key; picking it up replaced Isaac's D6.
+- In a separate reset check, the same item was granted through the console. Using it in the Dark Room returned Isaac to Basement I, removed The Sad Onion and Swallowed Penny, consumed the key, and applied Mom's Knife + Soy Milk.
+- Lamb progress survived the reset and a fresh game load (1/13 bosses, 2/11 setups).
+- Fixed an invalid sound constant discovered during testing; the fresh-process regression completed without Lua callback errors.
+
+Other characters and boss routes remain untested. The character table above describes prototype setups, not a completed verification matrix.
 
 ## Development
 
