@@ -49,11 +49,10 @@ end
 
 -- Character setup definitions
 CharacterSetups.Setups = {
-    -- Isaac: Mom's Knife + Soy Milk
+    -- Isaac: normal D6; Knife + Soy Milk is opt-in
     [PlayerType.PLAYER_ISAAC] = {
         items = {
-            CollectibleType.COLLECTIBLE_MOMS_KNIFE,
-            CollectibleType.COLLECTIBLE_SOY_MILK,
+            CollectibleType.COLLECTIBLE_D6,
         },
     },
 

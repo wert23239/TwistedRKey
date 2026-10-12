@@ -72,6 +72,9 @@ function TwistedRKeyItem:OnUseItem(player)
     -- Mark that we need to do post-teleport setup
     self.twistedRKeyUsed = true
 
+    -- Consume this custom key explicitly before restoring a different active.
+    -- Returning Remove=true after the synchronous stage warp removes D6 instead.
+    player:RemoveCollectible(self:GetItemId())
     -- Strip all items from the player
     self.characterSetups.StripAllItems(player)
 
@@ -85,8 +88,8 @@ function TwistedRKeyItem:OnUseItem(player)
     SFX_MANAGER:Play(SoundEffect.SOUND_R_KEY or SoundEffect.SOUND_POWERUP1, 1.0, 0)
 
     return {
-        Discharge = true,
-        Remove = true,
+        Discharge = false,
+        Remove = false,
         ShowAnim = true,
     }
 end

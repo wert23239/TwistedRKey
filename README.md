@@ -12,7 +12,7 @@ Your goal: **defeat every endgame boss** across multiple twisted restarts. Boss 
 
 | Character | Starting Loadout | Notes |
 |-----------|-----------------|-------|
-| **Isaac** | Mom's Knife + Soy Milk | Classic rapid-fire knife tears |
+| **Isaac** | D6 normally; optional D6 + Mom's Knife + Soy Milk | Select with `lua TRKLoadout('knife')`; normal default |
 | **Azazel** | Rock Bottom + random stat up | One big stat locked in |
 | **The Lost** | One random flight item | "Grounded" — starts without innate flight |
 | **Eden** | Experimental Treatment + Eden's Blessing | One blessing per run, random stats |
@@ -99,3 +99,14 @@ TwistedRKey/
 ## License
 
 MIT
+
+
+## Oct 12 loadout build scope
+
+Isaac’s saved design is implemented: default D6, optional Knife + Soy Milk
+alongside D6, applied on fresh runs and Twisted resets. See TEST-GUIDE.md for
+console selection. Browser design edits do not automatically change the game.
+Magdalene and Cain’s new saved mechanics are **not shipped in this build**.
+Other character entries above are legacy prototypes, not verified normal-kit
+restoration. Per-character completion badges, timer reset and deathless pool
+exclusions remain separate unfinished work.
