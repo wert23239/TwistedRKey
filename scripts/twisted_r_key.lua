@@ -23,10 +23,13 @@ function TwistedRKeyItem:Init(mod, characterSetups, bossTracker, progression)
         end
     end)
 
-    -- Register use item callback
+    -- Register broadly because custom item IDs may not be resolvable during init.
     mod:AddCallback(ModCallbacks.MC_USE_ITEM, function(_, itemId, rng, player, flags, slot, varData)
+        if itemId ~= self:GetItemId() then
+            return nil
+        end
         return self:OnUseItem(player)
-    end, self:GetItemId())
+    end)
 
     -- Spawn Twisted R Key after endgame boss rooms
     mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, function(_, rng, spawnPos)
