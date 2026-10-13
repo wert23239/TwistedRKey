@@ -1,0 +1,20 @@
+# 2026-10-12 23:32 ET continuation — source-only QA preparation
+
+Isaac-PC connected; isaac-ng is not running. Existing official REPENTOGON launcher PID 6800 retained; no duplicate launch or game input sent.
+Audio services Audiosrv and AudioEndpointBuilder: running. Win32 sound devices: OK, which does not prove an available playback endpoint.
+Read-only IMMDeviceEnumerator.GetDefaultAudioEndpoint(eRender, role) in the remote execution session:
+  eConsole (0): HRESULT=0x80070490
+  eMultimedia (1): HRESULT=0x80070490
+  eCommunications (2): HRESULT=0x80070490
+Therefore no default render endpoint is exposed in this execution context. This directly corroborates the previous WASAPI failure, without audio configuration changes. Registry DeviceState has high-bit flags and must NOT be interpreted by equality to 1; use runtime API above for this result. No assertion about the user's interactive audible output.
+
+Expanded QA-only live harness (not executed in game):
+- Floors 1/2/3: damage AND red-health decrease, needle gain increases; healed second hit.
+- Assert ordinary Pentagram damage-up; named custom-ID lookup; floor/cycle reset and acquired-item stripping; post-key hit.
+- Clicker direct grant, use attempt and spawned pedestal guard assertions.
+- Explicit save-continue/resume and natural-before/after commands; manual normal quit only. Debug warps NOT credited as natural transitions. Pool RNG selection and pedestal rerolls still require separate physical tests.
+- Each assertion logs expected/actual and PASS/FAIL as JSON; failed prerequisites do not count as verified effects.
+- Harness parses in Lua; six existing source/mock suites pass again. No live engine pass obtained, and source candidate a4cc2a7 remains unverified in game.
+No saves, mod files, audio settings or runtime changed on Windows.
+
+Harness SHA256: 8767aea958d0a3e2911828a4c6dcaba90e893bb472da72efe09dfee9658849bd
