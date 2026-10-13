@@ -21,6 +21,16 @@ BossTracker.BOSSES = {
 }
 
 -- All boss IDs for easy iteration
+BossTracker.REQUIRED_CHECKS = {
+    'moms_heart', 'isaac_boss', 'satan', 'boss_rush', 'blue_baby',
+    'the_lamb', 'mega_satan', 'hush', 'delirium', 'mother', 'the_beast',
+}
+BossTracker.COMPLETION_MAP = {
+    [0] = 'moms_heart', [1] = 'isaac_boss', [2] = 'satan', [3] = 'boss_rush',
+    [4] = 'blue_baby', [5] = 'the_lamb', [6] = 'mega_satan', [9] = 'hush',
+    [12] = 'delirium', [13] = 'mother', [14] = 'the_beast',
+}
+
 BossTracker.ALL_BOSS_IDS = {}
 for _, boss in ipairs(BossTracker.BOSSES) do
     table.insert(BossTracker.ALL_BOSS_IDS, boss.id)
@@ -30,6 +40,38 @@ function BossTracker:Init(mod)
     self.mod = mod
     self.data = {}
     self.runData = {} -- Bosses killed in current R Key cycle
+    self:Load()
+    if ModCallbacks.MC_POST_SAVESLOT_LOAD then
+        mod:AddCallback(ModCallbacks.MC_POST_SAVESLOT_LOAD, function(_, _, selected, rawSlot)
+            if selected and rawSlot ~= 0 then self:Load() end
+        end)
+    end
+    if ModCallbacks.MC_POST_COMPLETION_EVENT then
+        self.nativeCompletions = true
+        mod:AddCallback(ModCallbacks.MC_POST_COMPLETION_EVENT, function(_, completion)
+            local boss = self.COMPLETION_MAP[completion]
+            if boss then self:MarkBossKilled(boss) end
+        end)
+    end
+    if ModCallbacks.MC_POST_COMPLETION_MARK_GET then
+        mod:AddCallback(ModCallbacks.MC_POST_COMPLETION_MARK_GET, function(_, completion, playerType)
+            local boss = self.COMPLETION_MAP[completion]
+            if boss then self:MarkBossKilled(boss, playerType) end
+        end)
+    end
+    -- Vanilla Boss Rush does not have one unique boss NPC: only final clear counts.
+    mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, function()
+        if Game():GetRoom():GetType() == RoomType.ROOM_BOSSRUSH then
+            self:MarkBossKilled('boss_rush')
+        end
+    end)
+    mod:AddCallback(ModCallbacks.MC_POST_GAME_END, function(_, isGameOver)
+        if isGameOver then
+            self.data._characters = {}
+            self.data._chainBosses = {}
+            self:Save()
+        end
+    end)
 
     -- Register boss death detection
     mod:AddCallback(ModCallbacks.MC_POST_NPC_DEATH, function(_, npc)
@@ -42,11 +84,24 @@ function BossTracker:OnGameStart(continued)
         self:Load()
     else
         self:Load()
+        local seed = Game():GetSeeds():GetStartSeedString()
+        if self.data._twistedRestart and self.data._chainSeed == seed then return end
+        self.data._twistedRestart = nil
+        self.data._chainSeed = seed
         self.runData = {}
+        self.data._characters = {}
+        self.data._chainBosses = {}
+        self.data._twistedCycles = 0
+        self.data._spentItems = {}
+        self.data._hardChain = Game().Difficulty == Difficulty.DIFFICULTY_HARD
+        self:Save()
     end
 end
 
 function BossTracker:OnBossDeath(npc)
+    -- Native completion events avoid premature checks from multi-phase/duplicate
+    -- NPCs (Satan, Mega Satan, Delirium transformations, etc).
+    if self.nativeCompletions then return end
     for _, boss in ipairs(self.BOSSES) do
         if npc.Type == boss.entityType and (npc.Variant == boss.variant or boss.variant == -1) then
             self:MarkBossKilled(boss.id)
@@ -56,16 +111,65 @@ function BossTracker:OnBossDeath(npc)
     end
 end
 
-function BossTracker:MarkBossKilled(bossId)
-    if not self.data[bossId] then
-        self.data[bossId] = true
-        self.runData[bossId] = true
-        self:Save()
+function BossTracker:MarkBossKilled(bossId, playerType)
+    self.data[bossId] = true -- retain legacy global progression, not character marks
+    self.data._chainBosses = self.data._chainBosses or {}
+    self.data._chainBosses[bossId] = true
+    self.runData[bossId] = true
+    if playerType ~= nil then
+        self:MarkCharacterBoss(playerType, bossId)
+    else
+        for i = 0, Game():GetNumPlayers() - 1 do
+            self:MarkCharacterBoss(Isaac.GetPlayer(i):GetPlayerType(), bossId)
+        end
     end
+    self:Save()
+end
+
+function BossTracker:CanonicalType(playerType)
+    if playerType == PlayerType.PLAYER_LAZARUS2 then return PlayerType.PLAYER_LAZARUS end
+    if playerType == PlayerType.PLAYER_ESAU then return PlayerType.PLAYER_JACOB end
+    return playerType
+end
+
+function BossTracker:MarkCharacterBoss(playerType, bossId)
+    playerType = self:CanonicalType(playerType)
+    self.data._characters = self.data._characters or {}
+    local key = tostring(playerType)
+    self.data._characters[key] = self.data._characters[key] or {}
+    if bossId == 'it_lives' then bossId = 'moms_heart' end
+    self.data._characters[key][bossId] = true
+    if self.data._hardChain and (self.data._twistedCycles or 0) > 0 and self:IsCharacterChainComplete(playerType) then
+        self.data._completedChains = self.data._completedChains or {}
+        -- The award is created only from THIS chain, never legacy/global data.
+        self.data._completedChains[key] = self.data._completedChains[key] or {
+            seed = Game():GetSeeds():GetStartSeedString(), checks = #self.REQUIRED_CHECKS, hard = true,
+        }
+    end
+end
+
+function BossTracker:IsCharacterChainComplete(playerType)
+    local marks = self:GetCharacterMarks(playerType)
+    for _, id in ipairs(self.REQUIRED_CHECKS) do
+        if not marks[id] then return false end
+    end
+    return true
+end
+
+function BossTracker:GetCharacterMarks(playerType)
+    playerType = self:CanonicalType(playerType)
+    return (self.data._characters or {})[tostring(playerType)] or {}
 end
 
 function BossTracker:IsBossKilled(bossId)
     return self.data[bossId] == true
+end
+
+function BossTracker:GetChainCount(playerType)
+    local count = 0
+    local marks = self:GetCharacterMarks(playerType)
+    for _, id in ipairs(self.REQUIRED_CHECKS) do if marks[id] then count = count + 1 end end
+    return count
 end
 
 function BossTracker:GetKilledCount()
@@ -83,7 +187,7 @@ function BossTracker:GetTotalBossCount()
 end
 
 function BossTracker:AreAllBossesKilled()
-    return self:GetKilledCount() >= self:GetTotalBossCount()
+    return self:IsCharacterChainComplete(Isaac.GetPlayer(0):GetPlayerType())
 end
 
 function BossTracker:ResetRunData()

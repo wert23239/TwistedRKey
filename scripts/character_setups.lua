@@ -12,15 +12,20 @@ local CollectibleType = CollectibleType
 -- Utility: remove all items from a player
 function CharacterSetups.StripAllItems(player)
     -- Remove all collectibles
-    for i = 1, CollectibleType.NUM_COLLECTIBLES do
-        while player:HasCollectible(i) do
-            player:RemoveCollectible(i)
-        end
+    local config = Isaac.GetItemConfig()
+    local limit = config:GetCollectibles().Size - 1
+    for i = 1, limit do
+        -- RGON exposes character-innate items through HasCollectible, even when
+        -- RemoveCollectible cannot remove them. Iterate real copies, never loop
+        -- on HasCollectible (Samson's innate Bloody Lust would hang the game).
+        local copies = player:GetCollectibleNum(i, true)
+        for _ = 1, copies do player:RemoveCollectible(i) end
     end
     -- Remove all trinkets
     for i = 1, TrinketType.NUM_TRINKETS do
-        while player:HasTrinket(i) do
-            player:TryRemoveTrinket(i)
+        -- Tick/locked trinkets may refuse removal; avoid an unbounded loop.
+        for _ = 1, 2 do
+            if not player:HasTrinket(i) or not player:TryRemoveTrinket(i) then break end
         end
     end
     -- Reset stats

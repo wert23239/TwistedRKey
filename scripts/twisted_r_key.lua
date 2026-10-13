@@ -58,19 +58,43 @@ function TwistedRKeyItem:GetItemId()
 end
 
 function TwistedRKeyItem:OnGameStart(continued)
-    if not continued then
+    if not continued and not self.bossTracker.data._twistedRestart then
         self.twistedRKeyUsed = false
+    end
+    if GAME.GetItemPool then
+        for id in pairs(self.bossTracker.data._spentItems or {}) do
+            GAME:GetItemPool():RemoveCollectible(tonumber(id))
+        end
     end
 end
 
-function TwistedRKeyItem:OnUseItem(player)
+function TwistedRKeyItem:KeepSpentItemsOutOfPool(player)
+    if not GAME.GetItemPool then return end
+    local key = tostring(self.bossTracker:CanonicalType(player:GetPlayerType()))
+    local baseline = (self.bossTracker.data._poolBaseline or {})[key] or {}
+    local spent = self.bossTracker.data._spentItems or {}
+    self.bossTracker.data._spentItems = spent
+    for id = 1, Isaac.GetItemConfig():GetCollectibles().Size - 1 do
+        if id ~= self:GetItemId() and player:GetCollectibleNum(id, true) > 0
+            and not baseline[tostring(id)] then
+            spent[tostring(id)] = true
+            GAME:GetItemPool():RemoveCollectible(id)
+        end
+    end
+end
+
+function TwistedRKeyItem:OnUseItem(player, beastTransition)
     Isaac.DebugString("[Twisted R Key] Item used! Initiating twisted restart...")
 
-    -- Save boss progress before restart
+    -- Save the same living chain before restarting its floor layout.
+    self:KeepSpentItemsOutOfPool(player)
+    self.bossTracker.data._twistedCycles = (self.bossTracker.data._twistedCycles or 0) + 1
     self.bossTracker:Save()
 
     -- Mark that we need to do post-teleport setup
     self.twistedRKeyUsed = true
+    self.bossTracker.data._twistedRestart = true
+    self.bossTracker:Save()
 
     -- Consume this custom key explicitly before restoring a different active.
     -- Returning Remove=true after the synchronous stage warp removes D6 instead.
@@ -81,7 +105,12 @@ function TwistedRKeyItem:OnUseItem(player)
     -- Teleport to Chapter 1 Stage 1
     -- Use the stage API to warp to Basement I
     local level = GAME:GetLevel()
-    Isaac.ExecuteCommand("stage 1")
+    if beastTransition then
+        -- Unlike a stage console warp, native R Key clears the Beast arena mode.
+        player:UseActiveItem(CollectibleType.COLLECTIBLE_R_KEY, UseFlag.USE_NOANIM)
+    else
+        Isaac.ExecuteCommand("stage 1")
+    end
 
     -- Play R Key sound effect
     -- Repentance+ exposes R Key's own sound; older versions use a valid fallback.
@@ -112,12 +141,15 @@ function TwistedRKeyItem:OnPostTwistedRestart()
         end
     end
 
+    self.bossTracker.data._twistedRestart = nil
+    self.bossTracker:Save()
+
     -- Refresh progression
     self.progression:RefreshUnlocks()
 
     -- Show HUD message
-    local killed = self.bossTracker:GetKilledCount()
-    local total = self.bossTracker:GetTotalBossCount()
+    local killed = self.bossTracker:GetChainCount(player:GetPlayerType())
+    local total = #self.bossTracker.REQUIRED_CHECKS
     GAME:GetHUD():ShowItemText("Twisted R Key", killed .. "/" .. total .. " bosses defeated")
 end
 

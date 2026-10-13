@@ -7,6 +7,9 @@ local Progression = require("scripts.progression")
 local TwistedRKeyItem = require("scripts.twisted_r_key")
 local LoadoutPresets = require("scripts.loadout_presets")
 local CharacterMechanics = require("scripts.character_mechanics")
+local CompletionOverlay = require("scripts.completion_overlay")
+local CustomItems = require("scripts.custom_items")
+local BeastReset = require("scripts.beast_reset")
 
 -- Initialize modules with mod reference
 BossTracker:Init(TwistedRKey)
@@ -14,12 +17,19 @@ Progression:Init(TwistedRKey, BossTracker)
 TwistedRKeyItem:Init(TwistedRKey, CharacterSetups, BossTracker, Progression)
 LoadoutPresets:Init(TwistedRKey, CharacterSetups, BossTracker)
 CharacterMechanics:Init(TwistedRKey, BossTracker, CharacterSetups)
+CompletionOverlay:Init(TwistedRKey, BossTracker)
+CustomItems:Init(TwistedRKey, BossTracker, CharacterMechanics, CharacterSetups)
+BeastReset:Init(TwistedRKey, BossTracker, TwistedRKeyItem)
 
 -- Save/Load data
 TwistedRKey:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continued)
     BossTracker:OnGameStart(continued)
+    CustomItems:OnGameStart(continued)
     LoadoutPresets:OnGameStart(continued)
     CharacterMechanics:OnGameStart(continued)
+    if not continued and not BossTracker.data._twistedRestart then
+        CustomItems:CapturePoolBaseline()
+    end
     Progression:OnGameStart(continued)
     TwistedRKeyItem:OnGameStart(continued)
 end)

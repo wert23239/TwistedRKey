@@ -1,5 +1,9 @@
 <items gfxroot="gfx/items/" version="1">
-    <active name="Twisted R Key" description="Restart... from scratch" gfx="collectibles/twisted_r_key.png" type="active" chargetype="normal" maxcharges="0" cooldown="0" passivecache="false" quality="4">
-        <tags>nogreed nochallenge quest</tags>
+    <active name="Twisted R Key" description="Restart... from scratch" gfx="twisted_r_key.png" type="active" chargetype="normal" maxcharges="0" cooldown="0" passivecache="false" quality="4" tags="nogreed nochallenge quest">
     </active>
+    <passive name="Unlucky Foot" description="Bad medicine, every floor" gfx="unlucky_foot.png" quality="0" tags="quest" />
+    <passive name="Panic Needle" description="The pain takes twice as much" gfx="panic_needle.png" cache="damage" quality="0" tags="quest" />
+    <passive name="Cursed Bow" description="Half a heart is all you get" gfx="cursed_bow.png" quality="0" tags="quest" />
+    <passive name="Undead Bird" description="It remembers who hurt it" gfx="undead_bird.png" quality="0" tags="quest" />
+    <passive name="Forced Resurrection" description="Another floor, another life" gfx="forced_resurrection.png" quality="0" tags="quest" />
 </items>

@@ -1,0 +1,1 @@
+<entities anm2root="gfx/" version="5"><entity name="Twisted Undead Bird" id="1000" variant="17730" subtype="0" anm2path="undead_bird.anm2" baseHP="0" collisionDamage="0" collisionMass="0" collisionRadius="0" numGridCollisionPoints="0" shadowSize="0" /></entities>
