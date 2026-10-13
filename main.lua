@@ -10,6 +10,7 @@ local CharacterMechanics = require("scripts.character_mechanics")
 local CompletionOverlay = require("scripts.completion_overlay")
 local CustomItems = require("scripts.custom_items")
 local BeastReset = require("scripts.beast_reset")
+local ItemExclusions = require("scripts.item_exclusions")
 
 -- Initialize modules with mod reference
 BossTracker:Init(TwistedRKey)
@@ -20,6 +21,7 @@ CharacterMechanics:Init(TwistedRKey, BossTracker, CharacterSetups)
 CompletionOverlay:Init(TwistedRKey, BossTracker)
 CustomItems:Init(TwistedRKey, BossTracker, CharacterMechanics, CharacterSetups)
 BeastReset:Init(TwistedRKey, BossTracker, TwistedRKeyItem)
+ItemExclusions:Init(TwistedRKey)
 
 -- Save/Load data
 TwistedRKey:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continued)

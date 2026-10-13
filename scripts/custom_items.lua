@@ -101,19 +101,33 @@ function Items:Update(player)
     local s = self:State(player)
     local birdKey = tostring(player.InitSeed)
     if player:HasCollectible(self.ids.needle) then
-        local floor = self.mechanics:FloorToken()
+        local floorToken = self.mechanics:FloorToken()
+        local floor = floorToken .. ':' .. tostring(self.tracker.data._twistedCycles or 0)
+        -- Upgrade a continued pre-fix save without discarding its current penalty.
+        if s.needleFloor == floorToken then s.needleFloor = floor end
         local red = player:GetHearts()
         local counter = player.GetBloodLustCounter and math.min(6, player:GetBloodLustCounter()) or 0
         if s.needleFloor ~= floor then
             s.needleFloor, s.needleGain, s.needleCounter, s.needleRed = floor, 0, counter, red
+            s.needlePendingRed = false
             player:AddCacheFlags(CacheFlag.CACHE_DAMAGE); player:EvaluateItems()
+            self.mechanics:Save()
+        elseif counter < (s.needleCounter or 0) then
+            -- The engine can reset Bloody Lust AFTER the first new-floor update.
+            -- Rebase the counter, otherwise hits on the new floor are ignored
+            -- until they exceed the previous floor's hit count.
+            s.needleCounter = counter
         elseif counter > (s.needleCounter or 0) then
-            if red < (s.needleRed or red) then
+            if red < (s.needleRed or red) or s.needlePendingRed then
                 s.needleGain = (s.needleGain or 0) + BLOOD_GAIN[counter + 1] - BLOOD_GAIN[(s.needleCounter or 0) + 1]
                 player:AddCacheFlags(CacheFlag.CACHE_DAMAGE); player:EvaluateItems()
                 self.mechanics:Save()
             end
+            s.needlePendingRed = false
             s.needleCounter = counter
+        elseif red < (s.needleRed or red) then
+            -- Health and Bloody Lust may be observed on adjacent engine ticks.
+            s.needlePendingRed = true
         end
         s.needleRed = red
     end
