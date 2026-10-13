@@ -6,17 +6,20 @@ local BossTracker = require("scripts.boss_tracker")
 local Progression = require("scripts.progression")
 local TwistedRKeyItem = require("scripts.twisted_r_key")
 local LoadoutPresets = require("scripts.loadout_presets")
+local CharacterMechanics = require("scripts.character_mechanics")
 
 -- Initialize modules with mod reference
 BossTracker:Init(TwistedRKey)
 Progression:Init(TwistedRKey, BossTracker)
 TwistedRKeyItem:Init(TwistedRKey, CharacterSetups, BossTracker, Progression)
 LoadoutPresets:Init(TwistedRKey, CharacterSetups, BossTracker)
+CharacterMechanics:Init(TwistedRKey, BossTracker, CharacterSetups)
 
 -- Save/Load data
 TwistedRKey:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continued)
     BossTracker:OnGameStart(continued)
     LoadoutPresets:OnGameStart(continued)
+    CharacterMechanics:OnGameStart(continued)
     Progression:OnGameStart(continued)
     TwistedRKeyItem:OnGameStart(continued)
 end)
