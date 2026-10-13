@@ -1,0 +1,6 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [NEEDLE QA] {"label":"continued state","actual":{"before":{"stage":1,"red":5,"cycle":1,"damage":3.0,"kind":6,"counter":1,"gain":0.5},"after":{"stage":1,"red":5,"gain":0.5,"damage":4.0,"kind":6,"cycle":1,"counter":1}},"expected":"same stage\/cycle\/kind\/gain and damage","result":"FAIL"}
+[INFO] - Lua Debug: [NEEDLE QA] {"label":"post-continue\/natural hit","actual":{"damageAccepted":true,"before":{"stage":1,"red":6,"gain":0.5,"damage":4.0,"kind":6,"cycle":1,"counter":1},"after":{"stage":1,"red":5,"gain":1.2,"damage":2.3000001907349,"kind":6,"cycle":1,"counter":2}},"expected":"red health decreases; damage decreases; needle gain increases","result":"PASS"}
+[INFO] - Lua Debug: [NEEDLE QA] {"label":"DONE","actual":{"failed":1,"passed":1},"expected":"manual continuation segment finished","result":"OBSERVED"}

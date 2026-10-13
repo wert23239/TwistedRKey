@@ -52,6 +52,12 @@ function Items:OnGameStart(continued)
     self.ids = {}
     for id, name in pairs(NAMES) do self.ids[id] = Isaac.GetItemIdByName(name) end
     self.ready = true
+    self.needleContinueRefresh = {}
+    if continued then
+        for i = 0, GAME:GetNumPlayers() - 1 do
+            self.needleContinueRefresh[tostring(Isaac.GetPlayer(i).InitSeed)] = true
+        end
+    end
     if EID and EID.addCollectible then
         local descriptions = {
             foot = "Cain starts each floor with a required negative pill#Take it before using other pocket consumables#No False PHD damage/black-heart benefits",
@@ -101,6 +107,11 @@ function Items:Update(player)
     local s = self:State(player)
     local birdKey = tostring(player.InitSeed)
     if player:HasCollectible(self.ids.needle) then
+        if self.needleContinueRefresh and self.needleContinueRefresh[birdKey] then
+            -- Native stats were restored before the saved custom penalty was loaded.
+            self.needleContinueRefresh[birdKey] = nil
+            player:AddCacheFlags(CacheFlag.CACHE_DAMAGE); player:EvaluateItems()
+        end
         local floorToken = self.mechanics:FloorToken()
         local floor = floorToken .. ':' .. tostring(self.tracker.data._twistedCycles or 0)
         -- Upgrade a continued pre-fix save without discarding its current penalty.
@@ -145,6 +156,14 @@ function Items:Update(player)
     end
 end
 
+-- Sample immediately before damage, not just on the last player-update tick.
+-- Healing and damage can occur in one tick and otherwise hide the red loss.
+function Items:BeforeDamage(player)
+    if self.ready and player and player:HasCollectible(self.ids.needle) then
+        self:State(player).needleRed = player:GetHearts()
+    end
+end
+
 function Items:Init(mod, tracker, mechanics, setups)
     self.tracker, self.mechanics, self.ids, self.birds = tracker, mechanics, {}, {}
     self.birdVariant = Isaac.GetEntityVariantByName('Twisted Undead Bird')
@@ -177,6 +196,7 @@ function Items:Init(mod, tracker, mechanics, setups)
     end
     mod:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, function(_, entity)
         local p = entity:ToPlayer()
+        self:BeforeDamage(p)
         if self.ready and p and p:HasCollectible(self.ids.bird) then
             self:State(p).birdRooms = 2
             self.mechanics:Save()

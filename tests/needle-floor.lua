@@ -31,3 +31,15 @@ p.counter=0;items:Update(p);p.red=2;p.counter=1;items:Update(p);assert(s.needleG
 local saved=s;items:Update(p);assert(s==saved and s.needleGain==0.5)
 s.needleFloor=tostring(floor);items:Update(p);assert(s.needleGain==0.5,'legacy continued penalty retained')
 print('PASS: first/healed hit, delayed floor-two/three counter resets, split-tick red hit, soul-only exclusion, floor persistence, same-floor Twisted reset, retained continue state')
+
+-- Heal and hit within one update: the pre-damage sample must see healed health.
+p.red=6;items:BeforeDamage(p);p.red=5;p.counter=2;items:Update(p)
+assert(math.abs(s.needleGain-1.2)<1e-8, "same-tick heal/hit penalty")
+print("PASS: same-tick healed red-hit baseline")
+
+local refreshed=0
+function p:EvaluateItems() refreshed=refreshed+1 end
+items.needleContinueRefresh={[tostring(p.InitSeed)]=true}
+items:Update(p);items:Update(p)
+assert(refreshed==1, 'continue cache refreshed once')
+print('PASS: continue damage cache refresh')

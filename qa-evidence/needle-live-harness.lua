@@ -109,7 +109,7 @@ TwistedRKey:AddCallback(ModCallbacks.MC_POST_UPDATE,function()
         local id=CollectibleType.COLLECTIBLE_CLICKER
         qa.kind=p:GetPlayerType();p:AddCollectible(id)
         p:UseActiveItem(id,UseFlag.USE_NOANIM)
-        qa.pickup=Isaac.Spawn(EntityType.ENTITY_PICKUP,PickupVariant.PICKUP_COLLECTIBLE,id,p.Position,Vector.Zero,nil):ToPickup()
+        qa.pickup=Isaac.Spawn(EntityType.ENTITY_PICKUP,PickupVariant.PICKUP_COLLECTIBLE,id,p.Position+Vector(100,0),Vector.Zero,nil):ToPickup()
     elseif t==410 then
         qaLog('Clicker grant/use','not held and character unchanged',
             not p:HasCollectible(CollectibleType.COLLECTIBLE_CLICKER) and p:GetPlayerType()==qa.kind)
