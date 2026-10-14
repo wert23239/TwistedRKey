@@ -28,6 +28,8 @@ Use Black Candle only for non-health-sensitive fixtures, recording its black-hea
 
 **Clicker:** blocked in pools, pedestal selection/replacement, direct grant/use and held inventory. Targeted mock/native evidence exists; exhaustive alternate pickup paths are not certified. D4/Missing No. are NOT currently banned.
 
+**Gnawed Leaf (210):** excluded at Alex’s request because stand-still invincibility is not fun for the challenge. v4 adds pool/selection/pedestal/direct-grant/held-item enforcement; mock coverage passes, native acceptance pending. Installed v2 is unchanged.
+
 ## User-reported regressions and corrections
 
 - **Samson: Dog Food HP-up → hit grants damage:** user-reported failure; same-update HP-up mock passes, counter-first/red-loss-later mock fails. Native root cause unconfirmed; no fix shipped.
