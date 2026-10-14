@@ -26,6 +26,10 @@ See [PLAYTEST-20261012.md](PLAYTEST-20261012.md) for actual passes and limitatio
 
 Isaac now defaults to D6 + Mom’s Knife + Soy Milk. The Knife preset is selected with `lua TRKLoadout('knife')`; D6-only opt-out with `lua TRKLoadout('normal')`.
 
+## Exceptions and rerolls
+
+See [the exceptions and regression register](EXCEPTIONS.md). D4 and Missing No. inventory rerolls are not tested or protected by the starting-kit preset.
+
 ## Development
 
 Runtime: `main.lua`, `content/`, `scripts/`, `resources/`, `metadata.xml`.
