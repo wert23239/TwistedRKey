@@ -89,3 +89,8 @@ PACKAGE MOCK SUITE PASS undead-bird-callback
 PACKAGE MOCK SUITE PASS undead-bird-lifecycle
 PACKAGE MOCK SUITE PASS saved-design-composition
 ALL 12 PACKAGE MOCK SUITES PASS — NOT NATIVE QA
+
+ZIP25runtimefiles+coverage+manifest; SHA256 b396ac796a1ab2c90725058e64d851a040c1b064ef2855fb99e937c170e4a02b
+Mechanics pinned ab40323 (deferred localCain excluded). Manifest/ZIP integrity verified.
+Packaging recovery: second-build staging included prior metadata in runtime hashes; assertion caught mismatch. Excluded coverage/manifest from runtime inventory, regenerated and fully byte/hash verified. No runtime change or gameplay repair.
+Local Chromium handoff2links/0pageerrors; DB writes blocked.
