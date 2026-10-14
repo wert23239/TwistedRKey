@@ -1,6 +1,6 @@
--- Saved design: Isaac keeps D6, optionally adds Knife + Soy Milk.
+-- Saved design: Isaac defaults to D6 + Knife + Soy Milk.
 -- Mode lives in the existing mod save, not in the browser design notebook.
-local Presets = { mode = "normal" }
+local Presets = { mode = "knife" }
 
 function Presets:ApplyIsaac(player)
     if player:GetPlayerType() ~= PlayerType.PLAYER_ISAAC then return end
@@ -18,7 +18,13 @@ function Presets:ApplyIsaac(player)
 end
 
 function Presets:OnGameStart(continued)
-    self.mode = self.tracker.data._isaacLoadoutMode == "knife" and "knife" or "normal"
+    -- One-time migration: earlier releases persisted the old normal-only default.
+    if not self.tracker.data._isaacKnifeDefaultV2 then
+        self.tracker.data._isaacLoadoutMode = "knife"
+        self.tracker.data._isaacKnifeDefaultV2 = true
+        self.tracker:Save()
+    end
+    self.mode = self.tracker.data._isaacLoadoutMode == "normal" and "normal" or "knife"
     -- Do not alter an existing Continue inventory. Reset re-applies the preset.
     if not continued then
         for i = 0, Game():GetNumPlayers() - 1 do self:ApplyIsaac(Isaac.GetPlayer(i)) end

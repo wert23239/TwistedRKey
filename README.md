@@ -24,7 +24,7 @@ New collectibles: Unlucky Foot, Panic Needle, Cursed Bow, Undead Bird and Forced
 
 See [PLAYTEST-20261012.md](PLAYTEST-20261012.md) for actual passes and limitations. **All boss drops and the Mega Satan → Delirium portal are not yet physically certified.** Timer reset and exhaustive pickup-history pool exclusion remain unfinished. Older prototype character descriptions are not verification claims.
 
-Isaac normally starts with D6. The optional Knife + Soy Milk preset is selected with `lua TRKLoadout('knife')`; normal default with `lua TRKLoadout('normal')`.
+Isaac now defaults to D6 + Mom’s Knife + Soy Milk. The Knife preset is selected with `lua TRKLoadout('knife')`; D6-only opt-out with `lua TRKLoadout('normal')`.
 
 ## Development
 
