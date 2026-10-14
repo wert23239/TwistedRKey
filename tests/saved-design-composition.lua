@@ -51,6 +51,9 @@ local function exact(p,ids)
  for id,n in pairs(expected)do assert(p.items[id]==n,'missing/wrong count '..id)end
  for id,n in pairs(p.items)do assert(expected[id]==n,'unexpected final grant '..id)end
 end
+test('Samson Blood Puppy565 and Bloody Lust plus Needle restored without duplicate',function()
+ local p=run(P.PLAYER_SAMSON);exact(p,{565,C.COLLECTIBLE_BLOODY_LUST,735});setups.ApplySetup(p);exact(p,{565,C.COLLECTIBLE_BLOODY_LUST,735});p.items={};setups.ApplySetup(p);exact(p,{565,C.COLLECTIBLE_BLOODY_LUST,735})
+end)
 test('ready Blue Baby uses saved design instead of legacy empty fallback',function()exact(run(P.PLAYER_BLUEBABY),{725,358,378,675});assert(#legacyLogs==0)end)
 test('ready Eden uses saved697/240 without legacy branch execution',function()local p=run(P.PLAYER_EDEN);exact(p,{697,240});assert(#legacyLogs==0);setups.ApplySetup(p);exact(p,{697,240})end)
 test('ready Bethany restores saved569',function()exact(run(P.PLAYER_BETHANY),{569});assert(#legacyLogs==0)end)
@@ -81,5 +84,5 @@ test('EID resurrection description matches verified clean-award timing',function
  players={player(P.PLAYER_LAZARUS)};tracker.data._twistedRestart=true;items:OnGameStart(false)
  assert(descriptions[738].text=='Lose a life when clearing the final boss of a floor#Your normal extra lives still work#No spare life means game over')
 end)
-assert(checks==14)
-print('14/14 saved-design/setup-wrapper MOCK contracts PASS. Native final inventories, twins, reset multiplicity and remaining draft mechanics UNVERIFIED; duplicate starting-kit limitation retained.')
+assert(checks==15)
+print('15/15 saved-design/setup-wrapper MOCK contracts PASS. Native final inventories, twins, reset multiplicity and remaining draft mechanics UNVERIFIED; duplicate starting-kit limitation retained.')

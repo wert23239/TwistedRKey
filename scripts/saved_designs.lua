@@ -11,6 +11,6 @@ return {
  [PlayerType.PLAYER_BETHANY] = { id = "bethany", items = {569} },
  [PlayerType.PLAYER_JACOB] = { id = "jacob-esau", items = {276} },
  [PlayerType.PLAYER_LAZARUS] = { id = "lazarus", items = {} },
- [PlayerType.PLAYER_SAMSON] = { id = "samson", items = {} },
+ [PlayerType.PLAYER_SAMSON] = { id = "samson", items = {565} },
  [PlayerType.PLAYER_EVE] = { id = "eve", items = {} },
 }
