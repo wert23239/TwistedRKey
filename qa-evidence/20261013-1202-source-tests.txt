@@ -1,0 +1,4 @@
+QA-only syntax PASS: home-route-observer.lua; native-ascent-route-snapshot.lua; executed native-night-finale-assist.lua.
+Final assist static guards PASS: no ChangeRoom/ExecuteCommand/SetStateFlag/MarkCharacterBoss/StartStageTransition/SaveData; requires IsVulnerableEnemy + FrameCount>180 before damage.
+These checks do NOT certify runtime finale safety: actual native Dogma intro crashed before corrected helper performed any boss damage. Both helper variants archived failed, no automatic redeployment.
+Production unchanged; existing source/mock suites not redundantly rerun.

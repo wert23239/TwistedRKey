@@ -1,0 +1,1 @@
+PASS both executed QA helper Lua syntax. Production unchanged; prior source suite results stand, not redundantly rerun.

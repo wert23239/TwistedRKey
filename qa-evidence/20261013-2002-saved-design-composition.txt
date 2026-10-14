@@ -1,0 +1,18 @@
+PASS MOCK COMPOSITION: ready Blue Baby uses saved design instead of legacy empty fallback
+PASS MOCK COMPOSITION: ready Eden uses saved697/240 without legacy branch execution
+PASS MOCK COMPOSITION: ready Bethany restores saved569
+PASS MOCK COMPOSITION: ready Tainted Lost saved619 included; legacy level read bypassed
+PASS MOCK COMPOSITION: ready Tainted Eden saved721
+PASS MOCK COMPOSITION: Jacob saved276 main and heart grant to actual returned twin only
+PASS MOCK COMPOSITION: missing Jacob twin safely skipped, not engine twin certification
+PASS MOCK COMPOSITION: restored baseline and trinkets supplement design and do not duplicate owned grants
+PASS MOCK COMPOSITION: revived Lazarus uses original startingkit key and custom resurrection
+PASS MOCK COMPOSITION: unready Items delegates through presets and mechanics to legacy setup
+PASS MOCK COMPOSITION: normal Isaac bypasses saved114/330 in wrapper
+PASS MOCK COMPOSITION: knife Isaac remains controlled by preset wrapper
+PASS MOCK COMPOSITION: duplicate baseline copies currently collapse (limitation characterization)
+PASS MOCK COMPOSITION: EID resurrection description matches verified clean-award timing
+14/14 saved-design/setup-wrapper MOCK contracts PASS. Native final inventories, twins, reset multiplicity and remaining draft mechanics UNVERIFIED; duplicate starting-kit limitation retained.
+
+Actual production presets/mechanics/custom-items wrapping and saved_designs.lua; MOCK native engine. No Windows deployment or native gameplay acceptance.
+EID timing correction only; native timing evidence already established1832 and1932, not replayed.

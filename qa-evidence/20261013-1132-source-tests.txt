@@ -1,0 +1,4 @@
+SYNTAX PASS TwistedRKey/qa-evidence/ascent-note-observer.lua
+SYNTAX PASS TwistedRKey/qa-evidence/ascent-room-snapshot.lua
+READ-ONLY GUARD PASS ascent-room-snapshot.lua
+No production changes; unchanged previously passing suites not replayed.

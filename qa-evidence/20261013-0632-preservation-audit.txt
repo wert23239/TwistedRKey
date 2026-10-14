@@ -1,0 +1,7 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+INDEPENDENT_SHA256_MATCHES=70
+GAME_RUNNING=False
+HELPER_PRESENT=False
+

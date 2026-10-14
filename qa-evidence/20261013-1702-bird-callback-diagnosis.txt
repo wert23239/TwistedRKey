@@ -1,0 +1,18 @@
+PASS MOCK: registered custom variant filter
+PASS MOCK: pursuit velocity aims at owner
+PASS MOCK: outside distance gate does not damage
+PASS MOCK: inside gate only scheduled frames damage
+PASS MOCK: native damage request amount/source/cooldown
+PASS MOCK: expired state removes effect
+PASS MOCK: missing owner removes effect
+PASS MOCK: friendly Dead Bird suppression uses owner custom item
+8 production bird callback contracts PASS; mocked movement/damage APIs, NOT native acceptance
+Telemetry Lua syntax PASS; QA only, not deployed or executed in game.
+Independent Windows 1632 preservation audit: AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False HELPER_PRESENT=False.
+Process inspection: retained PowerShell PID2060 predates lane; PID14116 is current read-only inspection; no Isaac process.
+Mock fixture first lacked EvaluateStatStage; corrected missing enum mock, no production changes.
+Source gates: distance strictly <14 AND effect.FrameCount %20 ==0; damage request amount1/flags0/source effect/cooldown30.
+Friendly bird removed via familiar-update callback, not HasCollectible117; innate-sensitive oracle invalid.
+Mock requests are NOT native health-loss or engine effect-update proof. Prior native contact FAIL and friendly acceptance remain unresolved.
+New guarded fresh slot3 HardEve telemetry captures effect-update counts, position/velocity/distance, owner, sprite frame, damage cooldown, all damage-source attempts and actual familiar counts every10frames for240frames after single hit.
+No completed lifetime/finale/Needle/Clicker/natural3 replay. No Windows mutation/game launch/runtime/audio/save changes.

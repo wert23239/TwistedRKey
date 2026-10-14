@@ -1,0 +1,11 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+INDEPENDENT_FILES=70
+MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+2026-10-13T04:38:35.3060195-07:00
+
+#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S="progress" RefId="1"><TNRef RefId="0" /><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>

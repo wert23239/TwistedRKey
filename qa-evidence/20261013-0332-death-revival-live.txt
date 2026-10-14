@@ -1,0 +1,11 @@
+Supported runtime: Binding of Isaac: Repentance+ v1.9.7.12.J273
+Backup/full log: C:\Users\perfe\IsaacResumedBackup-20261013-0332\death-revival-pass.log
+Verified save-slot callback BEFORE gameplay: [DEATH SLOT] 3
+Actual scripted engine fixture (Samson type6), not organic combat; native Heart event, no synthetic mark calls.
+[DEATH QA] {"label":"native Heart prerequisite","result":"PASS","actual":{"marks":{"moms_heart":true}}}
+[DEATH QA] {"label":"1up revival retains living chain","result":"PASS","actual":{"marks":{"moms_heart":true},"livesBefore":1,"livesAfter":0,"type":6}}
+[DEATH QA] {"label":"terminal death clears living chain","result":"PASS","actual":{"phase":"terminal","revivalPassed":true,"marks":[]}}
+[DEATH QA] DONE
+[INFO] - Isaac has shut down successfully
+Preservation: 70 backed-up files restored with SHA256 equality (native saves/config, actual mod-data, installed mod, extra Repentance save directory). QA helper absent; no game running. No audio/runtime modifications. This restores entering checkpoint only, NOT omitted pre-0002 living-chain mod-data.
+Tool recovery: oversized encoded command rejected before any mutation; smaller backup command plus chunked helper upload succeeded.

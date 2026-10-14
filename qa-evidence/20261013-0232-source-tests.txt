@@ -1,0 +1,9 @@
+PASS: first/healed hit, delayed floor-two/three counter resets, split-tick red hit, soul-only exclusion, floor persistence, same-floor Twisted reset, retained continue state
+PASS: same-tick healed red-hit baseline
+PASS: continue damage cache refresh
+PASS: Clicker pool start/reset, selection fallback, direct grant rejection, spawned/rerolled pedestal replacement, use cancellation, held-item removal
+PASS: lost acquired items stay out of pool; baseline kit/key excluded; continue reapplies exclusions
+PASS: bounded strip handles innate Bloody Lust, custom IDs beyond vanilla count, and non-removable Tick
+PASS: 11 hard-only checks, legacy isolation, continue/key persistence, death/new-run reset, permanent badges, Lazarus identity, no cross-character aggregation
+PASS: 4-room/unique-room trigger, red/soul conversions, all-rotten cap, per-player isolation, negative pill consume/unlock/new-floor/continue, sticky trinket, baseline items. Engine black-heart/half-heart behavior and input timing still require game testing.
+Matrix helper syntax PASS

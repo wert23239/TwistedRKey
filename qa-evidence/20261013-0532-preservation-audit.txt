@@ -1,0 +1,10 @@
+Read-only Isaac-PC audit against IsaacResumedBackup-20261013-0502:
+CHECKED=70
+MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+Maps: Documents/My Games/Binding of Isaac Repentance+, game/data/twistedrkey,
+game/mods/twisted_r_key, Documents/My Games/Binding of Isaac Repentance.
+Initial audit incorrectly guessed mods/twistedrkey, yielding 29 missing paths;
+directory discovery corrected this to mods/twisted_r_key. No Windows writes.
+Audio/launcher/runtime untouched. Does not recover original pre0002 living-chain omission.

@@ -1,0 +1,15 @@
+PASS unarmed nil no descriptor query
+PASS valid exact callback target/dimension nil
+PASS NULL Data logged without override
+PASS missing descriptor logged without override
+PASS query failure still records raw destination
+PASS logger failure swallowed nil
+PASS slot guard
+PASS fresh run guard
+PASS seed guard
+PASS difficulty guard
+PASS count guard
+PASS day Home guard
+PASS exit disarms
+PASS unsupported callback no numeric fallback
+14 observer contracts PASS; syntax/static read-only PASS. MOCK, not in-game verification.

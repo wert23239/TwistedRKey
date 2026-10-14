@@ -1,0 +1,22 @@
+PASS: approved Home-only Beast-LAST gate, player guard, deferred once-only ordinary reset, ten-check admission, continue/start reevaluation, complete normal victory; mock only
+PASS: 11 hard-only checks, legacy isolation, continue/key persistence, death/new-run reset, permanent badges, Lazarus identity, no cross-character aggregation
+PASS: native callback mapping, ignored Greed/Dogma events, Beast-last award, no-cycle rejection, cold badge reload, death/new-run permanent badge; mock only
+PASS: 4-room/unique-room trigger, red/soul conversions, all-rotten cap, per-player isolation, negative pill consume/unlock/new-floor/continue, sticky trinket, baseline items. Engine black-heart/half-heart behavior and input timing still require game testing.
+PASS: menu badge earned/canonical/character-isolated/menu-only; pause 11 checks/full glyph, Beast-last incomplete, It Lives alias, gameplay menu exception guarded; mock only
+PASS: Clicker pool start/reset, selection fallback, direct grant rejection, spawned/rerolled pedestal replacement, use cancellation, held-item removal
+PASS: first/healed hit, delayed floor-two/three counter resets, split-tick red hit, soul-only exclusion, floor persistence, same-floor Twisted reset, retained continue state
+PASS: same-tick healed red-hit baseline
+PASS: continue damage cache refresh
+PASS: lost acquired items stay out of pool; baseline kit/key excluded; continue reapplies exclusions
+PASS: bounded strip handles innate Bloody Lust, custom IDs beyond vanilla count, and non-removable Tick
+tests/beast-early-reset-experiment.lua PASS
+tests/beast-home-gate.lua PASS
+tests/chain-tracker.lua PASS
+tests/character-mechanics.lua PASS
+tests/completion-overlay.lua PASS
+tests/item-exclusions.lua PASS
+tests/needle-floor.lua PASS
+tests/pool-cost.lua PASS
+tests/strip-innate.lua PASS
+production + corrected native door/bed helper syntax PASS
+QA guard: no forced-room/damage/native-state-flag injection PASS

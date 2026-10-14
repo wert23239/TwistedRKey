@@ -1,0 +1,1 @@
+PASS: read-only bed observer Lua syntax and mutation guard. Live execution verified armed slot3/continued ten-check chain; no native sleep/finale acceptance. Production unchanged; prior source suite results stand, not rerun.

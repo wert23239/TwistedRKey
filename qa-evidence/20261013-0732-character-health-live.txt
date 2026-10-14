@@ -1,0 +1,25 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+True
+[INFO] - [warn] AnmCache: cannot remove reference to gfx/ui/changelog_tab_paper.anm2
+[INFO] - [warn] AnmCache: cannot remove reference to gfx/ui/changelog.anm2
+[INFO] - Isaac has shut down successfully 
+[INFO] - Lua Debug: [HEALTH QA] slot {"slot":1}
+[INFO] - Lua Debug: [HEALTH QA] slot {"slot":3}
+[INFO] - Lua Debug: [HEALTH QA] start {"continued":false,"seed":"N324 C1W3","difficulty":1,"type":0}
+[INFO] - Lua Debug: [HEALTH QA] start {"continued":false,"seed":"9M3L TZJV","difficulty":1,"type":1}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"pocket":639,"yum":true},"expected":"Yum Heart and pocket Yuck Heart","label":"Maggy engine starting kit","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":0,"red":8,"max":8,"black":0,"soul":4},"converted":true,"after":{"rotten":1,"red":8,"max":8,"black":0,"soul":4}},"expected":{"rotten":1,"max":8,"soul":4,"red":8},"label":"normal red preserves soul","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":1,"red":8,"max":8,"black":0,"soul":4},"converted":true,"after":{"rotten":2,"red":8,"max":8,"black":0,"soul":4}},"expected":{"rotten":2,"max":8,"soul":4,"red":8},"label":"existing rotten preserved","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":0,"red":1,"max":2,"black":0,"soul":2},"converted":true,"after":{"rotten":1,"red":2,"max":2,"black":0,"soul":2}},"expected":{"rotten":1,"max":2,"soul":2,"red":2},"label":"half red converts once","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":0,"red":0,"max":0,"black":0,"soul":1},"converted":true,"after":{"rotten":1,"red":2,"max":2,"black":0,"soul":0}},"expected":{"rotten":1,"max":2,"soul":0,"red":2},"label":"half soul exchanges capacity","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":0,"red":0,"max":0,"black":1,"soul":2},"converted":true,"after":{"rotten":1,"red":2,"max":2,"black":0,"soul":0}},"expected":{"rotten":1,"max":2,"soul":0,"red":2},"label":"black exchanges without damage","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"before":{"rotten":2,"red":4,"max":4,"black":0,"soul":0},"converted":false,"after":{"rotten":2,"red":4,"max":4,"black":0,"soul":0}},"expected":{"rotten":2,"max":4,"soul":0,"red":4},"label":"all rotten does not heal","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] start {"continued":false,"seed":"CXLB 1QFV","difficulty":1,"type":2}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"lucky":true,"pending":true,"pill":1,"color":1,"effect":22,"type":2},"expected":"Lucky Foot; pending negative pill","label":"Cain actual starting pill lock","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"effect":47,"pill":1,"pending":true,"stage":2},"expected":"stage2 pending negative pill","label":"Cain engine floor-two lock","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] start {"continued":false,"seed":"WM2L SDV9","difficulty":1,"type":3}
+[INFO] - Lua Debug: [HEALTH QA] ASSERT {"actual":{"trinket0":5,"purse":true,"trinket1":0,"belial":true,"purple":true,"type":3},"expected":"Belial, Moms Purse, real Purple Heart","label":"Judas actual starting kit","result":"PASS"}
+[INFO] - Lua Debug: [HEALTH QA] DONE {"reason":"engine health API cases and starting kits; no synthetic room clears; no raw input certification"}
+

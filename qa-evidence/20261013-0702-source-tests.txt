@@ -1,0 +1,10 @@
+tests/beast-home-gate.lua PASS (source/mock only)
+tests/chain-tracker.lua PASS (source/mock only)
+tests/character-mechanics.lua PASS (source/mock only)
+tests/completion-overlay.lua PASS (source/mock only)
+tests/item-exclusions.lua PASS (source/mock only)
+tests/needle-floor.lua PASS (source/mock only)
+tests/pool-cost.lua PASS (source/mock only)
+tests/strip-innate.lua PASS (source/mock only)
+Production and new observer Lua syntax PASS; observer NOT live executed
+Observer static mutation guard PASS (NOT live route validation)

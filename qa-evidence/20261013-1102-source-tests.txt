@@ -1,0 +1,4 @@
+SYNTAX PASS QA judas-slots-harness.lua
+SYNTAX PASS unchanged verified-deferred scripts/character_mechanics.lua
+No production change; eight prior source/mock suites not redundantly replayed.
+Live: 5 PASS / 1 FAIL retained-card reset oracle, not all acceptance passed.

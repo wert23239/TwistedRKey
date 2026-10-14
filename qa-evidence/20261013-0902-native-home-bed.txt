@@ -1,0 +1,48 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Game Version: J273 
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - RNG Start Seed: MZ34 RR8V (1386010690) [Continue, 3]
+[INFO] - Lua Debug: [HOME BED QA] guard {"slot":3,"armed":true,"seed":"MZ34 RR8V","continued":true}
+[INFO] - Lua Debug: [HOME BED QA] native room {"count":10,"cycles":1,"pframe":0,"beds":[{"animation":"Idle","subtype":0,"frame":0,"x":120.0,"y":200.0}],"tick":30,"panim":"WalkDown","controls":true,"py":280.0,"px":80.0,"room":84,"doors":[{"slot":3,"target":97,"x":320.0,"open":false,"y":440.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native room {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":112,"panim":"WalkDown","controls":true,"py":160.0,"px":320.0,"room":97,"doors":[{"slot":1,"target":84,"x":320.0,"open":false,"y":120.0},{"slot":2,"target":98,"x":440.0,"open":false,"y":280.0},{"slot":4,"target":109,"x":200.0,"open":false,"y":560.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native door arrived {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":113,"panim":"WalkDown","controls":true,"py":171.52136230469,"px":320.0,"room":97,"doors":[{"slot":1,"target":84,"x":320.0,"open":true,"y":120.0},{"slot":2,"target":98,"x":440.0,"open":true,"y":280.0},{"slot":4,"target":109,"x":200.0,"open":true,"y":560.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":120,"panim":"WalkDown","controls":true,"py":221.50845336914,"px":304.72863769531,"room":97,"doors":[{"slot":1,"target":84,"x":320.0,"open":true,"y":120.0},{"slot":2,"target":98,"x":440.0,"open":true,"y":280.0},{"slot":4,"target":109,"x":200.0,"open":true,"y":560.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native room {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":172,"panim":"WalkDown","controls":true,"py":280.0,"px":560.0,"room":109,"doors":[{"slot":0,"target":108,"x":40.0,"open":false,"y":280.0},{"slot":2,"target":110,"x":600.0,"open":false,"y":280.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native door arrived {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":173,"panim":"WalkDown","controls":true,"py":287.23574829102,"px":551.03411865234,"room":109,"doors":[{"slot":0,"target":108,"x":40.0,"open":true,"y":280.0},{"slot":2,"target":110,"x":600.0,"open":true,"y":280.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] STOP {"reason":"expected native open door absent to 95","tick":173}
+[INFO] - Lua Debug: [HOME BED QA] door blockage {"count":10,"cycles":1,"pframe":0,"beds":[],"tick":173,"panim":"WalkDown","controls":true,"py":287.23574829102,"px":551.03411865234,"room":109,"doors":[{"slot":0,"target":108,"x":40.0,"open":true,"y":280.0},{"slot":2,"target":110,"x":600.0,"open":true,"y":280.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native room {"count":10,"cycles":1,"pframe":5,"beds":[],"tick":173,"panim":"WalkLeft","controls":true,"py":560.0,"px":400.0,"room":108,"doors":[{"slot":1,"target":82,"x":320.0,"open":false,"y":120.0},{"slot":6,"target":109,"x":440.0,"open":false,"y":560.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] native room {"count":10,"cycles":1,"pframe":5,"beds":[{"animation":"Idle","subtype":10,"frame":0,"x":120.0,"y":200.0}],"tick":173,"panim":"WalkUp","controls":true,"py":400.0,"px":320.0,"room":82,"doors":[{"slot":3,"target":95,"x":320.0,"open":false,"y":440.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] exit {"state":{"count":10,"cycles":1,"pframe":0,"beds":[{"animation":"Idle","subtype":10,"frame":0,"x":120.0,"y":200.0}],"tick":173,"panim":"WalkDown","controls":true,"py":295.45916748047,"px":143.18710327148,"room":82,"doors":[{"slot":3,"target":95,"x":320.0,"open":true,"y":440.0}],"stage":13},"save":true}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":1}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":1}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":2}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":2}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - Game Version: J273 
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - RNG Start Seed: MZ34 RR8V (1386010690) [Continue, 3]
+[INFO] - Lua Debug: [HOME BED QA] guard {"armed":true,"seed":"MZ34 RR8V","slot":3,"continued":true}
+[INFO] - Lua Debug: [HOME BED QA] bed approach {"room":82,"py":400.0,"tick":90,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":320.0,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"room":82,"py":250.27473449707,"tick":120,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":174.59637451172,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"room":82,"py":200.00010681152,"tick":240,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":179.99540710449,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"room":82,"py":200.00010681152,"tick":360,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":179.99540710449,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"room":82,"py":200.00010681152,"tick":480,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":179.99540710449,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] progress {"room":82,"py":200.00010681152,"tick":600,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":179.99540710449,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] STOP {"reason":"bed observation completed; NO TV entry","tick":691}
+[INFO] - Lua Debug: [HOME BED QA] bed final {"room":82,"py":200.00010681152,"tick":691,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":179.99540710449,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13}
+[INFO] - Lua Debug: [HOME BED QA] exit {"state":{"room":82,"py":231.14848327637,"tick":691,"pframe":0,"beds":[{"frame":0,"animation":"Idle","y":200.0,"subtype":10,"x":120.0}],"controls":true,"panim":"WalkDown","count":10,"cycles":1,"px":194.71318054199,"doors":[{"slot":3,"y":440.0,"target":95,"open":true,"x":320.0}],"stage":13},"save":true}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":1}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":1}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":2}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":2}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - Lua Debug: [HOME BED QA] slot {"slot":3}
+[INFO] - [warn] AnmCache: cannot remove reference to gfx/ui/changelog_tab_paper.anm2
+[INFO] - [warn] AnmCache: cannot remove reference to gfx/ui/changelog.anm2
+[INFO] - Isaac has shut down successfully

@@ -1,0 +1,21 @@
+[INFO] - Binding of Isaac: Repentance+ v1.9.7.12.J273
+[INFO] - Loading GameState 1 from local folder!
+[INFO] - Loading GameState 1 from local folder!
+[INFO] - Loading GameState 2 from local folder!
+[INFO] - Loading GameState 2 from local folder!
+[INFO] - Loading GameState 3 from local folder!
+[INFO] - Loading GameState 3 from local folder!
+[INFO] - Loading GameState 1 from local folder!
+[INFO] - Lua Debug: [REWARD QA] fixture 1 bosses=[{"type":78,"variant":0,"subtype":0},{"type":78,"variant":10,"subtype":0},{"type":60,"variant":0,"subtype":0},{"type":60,"variant":0,"subtype":0}]
+[INFO] - Lua Debug: [REWARD EVENT] 0
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"stage":8,"roomType":5,"explicitFixture":false,"bosses":[{"type":78,"variant":0,"subtype":0},{"type":78,"variant":10,"subtype":0},{"type":60,"variant":0,"subtype":0},{"type":60,"variant":0,"subtype":0}],"keys":1,"clear":true},"expected":"cleared real boss fixture yields exactly one named Twisted R Key","label":"Womb II case 1 reward","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"marks":{"moms_heart":true},"chainCount":1},"expected":"engine completion event credits canonical Heart check","label":"Womb II case 1 native check","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] fixture 2 bosses=[{"type":78,"variant":0,"subtype":0}]
+[INFO] - Lua Debug: [REWARD EVENT] 0
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"stage":8,"roomType":5,"explicitFixture":true,"bosses":[{"type":78,"variant":0,"subtype":0}],"keys":1,"clear":true},"expected":"cleared real boss fixture yields exactly one named Twisted R Key","label":"Womb II case 2 reward","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"marks":{"moms_heart":true},"chainCount":1},"expected":"engine completion event credits canonical Heart check","label":"Womb II case 2 native check","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] fixture 3 bosses=[{"type":78,"variant":1,"subtype":0}]
+[INFO] - Lua Debug: [REWARD EVENT] 0
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"stage":8,"roomType":5,"explicitFixture":true,"bosses":[{"type":78,"variant":1,"subtype":0}],"keys":1,"clear":true},"expected":"cleared real boss fixture yields exactly one named Twisted R Key","label":"Womb II case 3 reward","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] {"actual":{"marks":{"moms_heart":true},"chainCount":1},"expected":"engine completion event credits canonical Heart check","label":"Womb II case 3 native check","result":"PASS"}
+[INFO] - Lua Debug: [REWARD QA] DONE

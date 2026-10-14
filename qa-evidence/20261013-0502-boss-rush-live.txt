@@ -1,0 +1,17 @@
+Actual supported REPENTOGON 1.1.3 / Repentance+ v1.9.7.12.J273.
+Selected slot1 at menu only; backed out before gameplay. Positively selected slot3 before starting.
+Seed TZLX 7LGY, difficulty1 (Hard). Debug stage6/goto s.bossrush generated room17 (Placeholder Boss Rush).
+Collected generated start pedestal6; real engine waves killed with scripted TakeDamage, no synthetic completion marks.
+[RUSH TRACE] native Boss Rush {"event":3,"tick":1945}
+[RUSH QA] {"label":"native Boss Rush credits canonical chain","result":"PASS","actual":{"marks":{"boss_rush":true},"count":1,"native":true}}
+[RUSH QA] DONE
+Isaac has shut down successfully
+RESTORED_SHA256_FILES=70
+HELPER_PRESENT=False
+GAME_RUNNING=False
+Backup/full log: C:\Users\perfe\IsaacResumedBackup-20261013-0502\boss-rush-pass.log
+1 live assertion PASS; not organic combat or full-chain certification.
+Oversized encoded deployment command failed before mutation; smaller base64 file uploads recovered.
+Duplicate official launcher produced fatal-error dialog before gameplay; both launcher windows closed normally, then official --stealth-mode --launch-mode=repentogon --skip-repentogon-update launched successfully. No runtime/audio settings changed.
+Input script policy refusal recovered with process-scoped ExecutionPolicy Bypass; no persistent policy edit.
+All70 entering save/config/mod-data/mod/extra-save files restored with SHA256 checks, QA-final files archived and extras moved, helper removed/game closed. Original pre-0002 living-chain omission remains unresolved.

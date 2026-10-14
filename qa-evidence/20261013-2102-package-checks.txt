@@ -1,0 +1,91 @@
+PASS: first/healed hit, delayed floor-two/three counter resets, split-tick red hit, soul-only exclusion, floor persistence, same-floor Twisted reset, retained continue state
+PASS: same-tick healed red-hit baseline
+PASS: continue damage cache refresh
+PASS: Clicker pool start/reset, selection fallback, direct grant rejection, spawned/rerolled pedestal replacement, use cancellation, held-item removal
+PASS: lost acquired items stay out of pool; baseline kit/key excluded; continue reapplies exclusions
+PASS: bounded strip handles innate Bloody Lust, custom IDs beyond vanilla count, and non-removable Tick
+PASS: 11 hard-only checks, legacy isolation, continue/key persistence, death/new-run reset, permanent badges, Lazarus identity, no cross-character aggregation
+PASS: native callback mapping, ignored Greed/Dogma events, Beast-last award, no-cycle rejection, cold badge reload, death/new-run permanent badge; mock only
+PASS: approved Home-only Beast-LAST gate, player guard, deferred once-only ordinary reset, ten-check admission, continue/start reevaluation, complete normal victory; mock only
+PASS: menu badge earned/canonical/character-isolated/menu-only; pause 11 checks/full glyph, Beast-last incomplete, It Lives alias, gameplay menu exception guarded; mock only
+PASS source-only: Isaac D6 base draft
+PASS source-only: Azazel random branch 1
+PASS source-only: Azazel random branch 2
+PASS source-only: Azazel random branch 3
+PASS source-only: Azazel random branch 4
+PASS source-only: Lost random branch 1 remains flying (grounded NOT implemented)
+PASS source-only: Lost random branch 2 remains flying (grounded NOT implemented)
+PASS source-only: Lost random branch 3 remains flying (grounded NOT implemented)
+PASS source-only: Eden grants Experimental Treatment + Blessing only (extra boss NOT implemented here)
+PASS source-only: Jacob grants Dr Fetus + Reflection + No 2 to passed player only
+PASS source-only: Tainted Isaac grants three ordinary Sacred Orbs (inverse filter NOT implemented here)
+PASS source-only: Tainted Lost Baggy + Crystal Ball; level read is not planetarium hook
+PASS source-only: Tainted Cain grants Moms Shovel; no conversion implementation in setup
+PASS source-only: Tainted Keeper Magneto + Cursed Penny; no shop-door hook in setup
+PASS source-only: Tainted Eden TMTRAINER only; no death callback in setup
+PASS source-only: Tainted Jacob Birthright grant
+PASS source-only: undefined character leaves inventory alone and logs
+TOTAL: 17/17 source contracts PASS. Incomplete draft behaviors are documented limitations, NOT gameplay passes.
+PASS MOCK: unready skips all processing
+PASS MOCK: nonboss room skipped
+PASS MOCK: XL first boss skipped
+PASS MOCK: lastboss calls Die once and saves
+PASS MOCK: repeat award on samefloor does not spend secondlife
+PASS MOCK: next floor rearms death
+PASS MOCK: item absent does not kill
+PASS MOCK: zero extra lives still requests native death
+PASS MOCK: players independently gated by item
+PASS MOCK: perplayer floor guard remains independent
+PASS MOCK: token prevents synchronous reentrant double death
+PASS MOCK: continued samefloor state skips repeat death
+PASS MOCK: missing last descriptor currently fails open (characterization only)
+13 production Forced Resurrection callback MOCK contracts PASS; native revival, floor exit timing and terminal gameover NOT verified
+PASS MOCK: registered custom variant filter
+PASS MOCK: custom effect advances despite engine zero velocity
+PASS MOCK: outside post-movement distance gate does not damage
+PASS MOCK: inside gate only scheduled frames damage
+PASS MOCK: native damage request amount/source/cooldown
+PASS MOCK: expired state removes effect
+PASS MOCK: missing owner removes effect
+PASS MOCK: friendly Dead Bird suppression uses owner custom item
+8 production bird callback contracts PASS; mocked movement/damage APIs, NOT native acceptance
+PASS MOCK COMPOSITION: fresh Eve starts with no hostile room budget
+PASS MOCK COMPOSITION: damage callback persists budget through real Mechanics Save
+PASS MOCK COMPOSITION: update spawns once per live effect
+PASS MOCK COMPOSITION: room replacement discards cache and new bird pursues
+PASS MOCK COMPOSITION: saved nextroom budget reloads without OnGameStart decrement
+PASS MOCK COMPOSITION: reloaded bird uses live owner and can request contact damage
+PASS MOCK COMPOSITION: room callback after Continue consumes budget (ordering characterization)
+PASS MOCK COMPOSITION: fresh restart discards prior saved bird budget
+PASS MOCK COMPOSITION: Twisted restart also clears mechanics bird budget
+PASS MOCK COMPOSITION: two players have independently saved room budgets
+10 new bird lifecycle composition contracts PASS; native Continue callback ordering, key reset and nextroom damage remain UNVERIFIED
+PASS MOCK COMPOSITION: ready Blue Baby uses saved design instead of legacy empty fallback
+PASS MOCK COMPOSITION: ready Eden uses saved697/240 without legacy branch execution
+PASS MOCK COMPOSITION: ready Bethany restores saved569
+PASS MOCK COMPOSITION: ready Tainted Lost saved619 included; legacy level read bypassed
+PASS MOCK COMPOSITION: ready Tainted Eden saved721
+PASS MOCK COMPOSITION: Jacob saved276 main and heart grant to actual returned twin only
+PASS MOCK COMPOSITION: missing Jacob twin safely skipped, not engine twin certification
+PASS MOCK COMPOSITION: restored baseline and trinkets supplement design and do not duplicate owned grants
+PASS MOCK COMPOSITION: revived Lazarus uses original startingkit key and custom resurrection
+PASS MOCK COMPOSITION: unready Items delegates through presets and mechanics to legacy setup
+PASS MOCK COMPOSITION: normal Isaac bypasses saved114/330 in wrapper
+PASS MOCK COMPOSITION: knife Isaac remains controlled by preset wrapper
+PASS MOCK COMPOSITION: duplicate baseline copies currently collapse (limitation characterization)
+PASS MOCK COMPOSITION: EID resurrection description matches verified clean-award timing
+14/14 saved-design/setup-wrapper MOCK contracts PASS. Native final inventories, twins, reset multiplicity and remaining draft mechanics UNVERIFIED; duplicate starting-kit limitation retained.
+Packaged Lua syntax PASS 12
+PACKAGE MOCK SUITE PASS needle-floor
+PACKAGE MOCK SUITE PASS item-exclusions
+PACKAGE MOCK SUITE PASS pool-cost
+PACKAGE MOCK SUITE PASS strip-innate
+PACKAGE MOCK SUITE PASS chain-tracker
+PACKAGE MOCK SUITE PASS beast-home-gate
+PACKAGE MOCK SUITE PASS completion-overlay
+PACKAGE MOCK SUITE PASS character-drafts
+PACKAGE MOCK SUITE PASS forced-resurrection
+PACKAGE MOCK SUITE PASS undead-bird-callback
+PACKAGE MOCK SUITE PASS undead-bird-lifecycle
+PACKAGE MOCK SUITE PASS saved-design-composition
+ALL 12 PACKAGE MOCK SUITES PASS — NOT NATIVE QA

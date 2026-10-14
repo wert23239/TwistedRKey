@@ -41,6 +41,7 @@ function Mechanics:GiveCainPill(player, force)
     local floor = self:FloorToken()
     if not force and s.floor == floor then return end
     s.floor, s.pending = floor, true
+    if self.cainInputRequests then self.cainInputRequests[player.InitSeed] = nil end
     local rng = player:GetCollectibleRNG(CollectibleType.COLLECTIBLE_LUCKY_FOOT)
     s.effect = NEGATIVE[rng:RandomInt(#NEGATIVE) + 1]
     s.color = PillColor.PILL_BLUE_BLUE
@@ -125,15 +126,11 @@ function Mechanics:UpdatePlayer(player)
     elseif kind == PlayerType.PLAYER_CAIN then
         local s = self:State(player)
         if s.pending then
-            -- Read raw action once; all engine pocket/drop polling is blocked.
-            -- Calling UsePill with an explicit effect bypasses Lucky Foot's
-            -- color-to-effect conversion, without granting False PHD itself.
-            self.readInput = true
-            local take = Input.IsActionTriggered(ButtonAction.ACTION_PILLCARD, player.ControllerIndex)
-            self.readInput = false
             player:SetCard(0, 0)
             player:SetPill(0, s.color)
-            if take then
+            local requests = self.cainInputRequests or {}
+            if requests[player.InitSeed] then
+                requests[player.InitSeed] = nil
                 s.pending = false
                 player:SetPill(0, 0)
                 self:Save()
@@ -144,6 +141,22 @@ function Mechanics:UpdatePlayer(player)
     elseif kind == PlayerType.PLAYER_JUDAS then
         self:Apply(player, false)
     end
+end
+
+-- Input trigger edges are reliable in MC_POST_RENDER, not player-effect
+-- updates (live cold Continue can otherwise swallow Q while pending stays true).
+function Mechanics:ReadCainInput(player)
+    if player:GetPlayerType() ~= PlayerType.PLAYER_CAIN or player.ControlsEnabled == false then return end
+    local s = self:State(player)
+    if not s.pending then return end
+    self.readInput = true
+    local take = Input.IsActionTriggered(ButtonAction.ACTION_PILLCARD, player.ControllerIndex)
+    self.readInput = false
+    if not take then return end
+    -- Rendering must only observe input. Native pill effects/cache evaluation
+    -- run on the next player-effect update, never inside the render stack.
+    self.cainInputRequests = self.cainInputRequests or {}
+    self.cainInputRequests[player.InitSeed] = true
 end
 
 function Mechanics:BlockInput(entity, hook, action)
@@ -166,6 +179,7 @@ function Mechanics:BlockInput(entity, hook, action)
 end
 
 function Mechanics:OnGameStart(continued)
+    self.cainInputRequests = {} -- input edges never survive Continue/restart
     self.data = continued and self.tracker.data._characterMechanics or nil
     self.data = self.data or { players = {}, cleared = {} }
     self.ready = true
@@ -183,6 +197,10 @@ function Mechanics:Init(mod, tracker, setups)
     end
     mod:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, function(_, player)
         if self.ready then self:UpdatePlayer(player) end
+    end)
+    mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
+        if not self.ready or GAME:IsPaused() then return end
+        for i = 0, GAME:GetNumPlayers() - 1 do self:ReadCainInput(Isaac.GetPlayer(i)) end
     end)
     mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, function()
         if self.ready then self:RoomCleared() end

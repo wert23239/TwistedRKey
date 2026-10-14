@@ -1,0 +1,36 @@
+READ-ONLY DIAGNOSIS; NO NEW ACTUAL-GAME PASS
+
+Inspected archived 0602 home-native-transition-crash.log and the exact
+qa-mod-final/main.lua deployed for that crash, not merely the current checkout.
+Archived main contains one finale helper; no duplicate aggressive helper found.
+Mom bed subtype10 entry was logged. The next generated room is Living Room1.4.
+The log reports '[warn] last boss died without triggering the deathspawn.'
+before the tick650 observation. That observation contains real Dogma950.
+The next recorded line is RoomTransition::change_room NULL-room assertion;
+neither the configured tick1000 nor tick2000 observations appears.
+Helper's scripted damage was guarded tick>1400; therefore the recorded
+update sequence does NOT support blaming the delayed scripted damage as
+the observed immediate cause. Engine ordering/fixture state remains unknown;
+missing checkpoints alone are not a general proof of precise crash timing.
+
+Fixture forcibly ChangeRoom(109) at tick450 after bed interaction, without
+checking the bed animation completed or the engine route/arena descriptors.
+That unvalidated forced transition is a diagnosis target, NOT a proved cause.
+No production fix applied and no new Beast/badge/normal-ending pass claimed.
+Do NOT redeploy the known-crash helper or erase its historical failed finale.
+
+Prepared qa-evidence/home-route-observer.lua: guarded slot3 cold Continue,
+Hard Samson seed MZ34 RR8V, one player, ten native checks and >=1 Twisted cycle.
+Logs room descriptor validity, bed/TV/Dogma/Beast animation+HP, native events,
+chain/badge and exit. It contains NO automated travel, input, damage, invincibility,
+synthetic events or save writes. Syntax and static mutation guard PASS.
+NOT deployed/live executed. Next backed-up QA should drive valid native
+Home navigation, observe bed completion before TV, and stop on invalid
+descriptors; do not automatically replay frame-timed forced-room fixture.
+
+Independent Windows audit against entering0632 backup:70 files,0 SHA256
+mismatches; game not running. Read-only Windows operations this run.
+Audio/runtime/save/mod files untouched. Original pre0002 living-chain
+mod-data omission remains unresolved; this audit does not restore it.
+Eight source/mock suites and production/observer syntax PASS, separately
+from prior live Needle floor2 and repeated-reset Clicker passes.

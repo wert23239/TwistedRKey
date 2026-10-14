@@ -1,0 +1,14 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [NATURAL3 QA] selected slot=3
+[INFO] - Lua Debug: [NATURAL3 QA] {"result":"FAIL","label":"natural floor3 timeout","actual":{"damage":3.0,"red":5,"kind":6,"seed":"L40L 6JZB","stage":2,"gain":0.5}}
+[INFO] - [Frame 2728] Starting stage transition (transition type: 0) 
+[INFO] - Level::Init m_Stage 3, m_StageType 0 Seed 2313373097
+[INFO] - Lua Debug: [NATURAL3 ACCEPT] {"result":"PASS","label":"native floor3 clears penalty","actual":{"damage":3.5,"red":5,"kind":6,"seed":"L40L 6JZB","stage":3,"gain":0}}
+[INFO] - Lua Debug: [NATURAL3 ACCEPT] {"result":"PASS","label":"native floor3 hit","actual":{"before":{"damage":3.5,"red":6,"kind":6,"seed":"L40L 6JZB","stage":3,"gain":0},"after":{"damage":3.0,"red":5,"kind":6,"seed":"L40L 6JZB","stage":3,"gain":0.5}}}
+[INFO] - Lua Debug: [NATURAL3 ACCEPT] {"result":"PASS","label":"native floor3 healed hit","actual":{"before":{"damage":3.0,"red":6,"kind":6,"seed":"L40L 6JZB","stage":3,"gain":0.5},"after":{"damage":2.3000001907349,"red":5,"kind":6,"seed":"L40L 6JZB","stage":3,"gain":1.2}}}
+[INFO] - Lua Debug: [NATURAL3 ACCEPT] DONE
+Native log and helpers archived under1002; both game sessions shut down normally
+False
+

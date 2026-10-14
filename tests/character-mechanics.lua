@@ -7,10 +7,11 @@ PillEffect={PILLEFFECT_SPEED_DOWN=13,PILLEFFECT_RANGE_DOWN=11,PILLEFFECT_TEARS_D
 PillColor={PILL_BLUE_BLUE=1};UseFlag={USE_NOANIM=1}
 ButtonAction={ACTION_PILLCARD=1,ACTION_DROP=2};InputHook={GET_ACTION_VALUE=2,IS_ACTION_TRIGGERED=1}
 PickupVariant={PICKUP_TAROTCARD=300,PICKUP_PILL=70,PICKUP_TRINKET=350}
-ModCallbacks={MC_POST_PEFFECT_UPDATE=1,MC_PRE_SPAWN_CLEAN_AWARD=2,MC_POST_NEW_LEVEL=3,MC_PRE_USE_ITEM=4,MC_INPUT_ACTION=5,MC_PRE_PICKUP_COLLISION=6}
+ModCallbacks={MC_POST_PEFFECT_UPDATE=1,MC_PRE_SPAWN_CLEAN_AWARD=2,MC_POST_NEW_LEVEL=3,MC_PRE_USE_ITEM=4,MC_INPUT_ACTION=5,MC_PRE_PICKUP_COLLISION=6,MC_POST_RENDER=7}
 local stage, roomIndex, pressed=1,0,false
+local paused=false
 local players={};local callbacks={}
-local game={GetNumPlayers=function()return #players end,GetLevel=function()return {
+local game={IsPaused=function()return paused end,GetNumPlayers=function()return #players end,GetLevel=function()return {
  GetDungeonPlacementSeed=function()return stage*100 end,GetStage=function()return stage end,GetStageType=function()return 0 end,GetCurrentRoomIndex=function()return roomIndex end}end,
  GetRoom=function()return {GetSpawnSeed=function()return roomIndex+1000 end}end,
  GetHUD=function()return {ShowItemText=function()end}end}
@@ -61,7 +62,13 @@ assert(maggy.rotten==6 and maggy.red==12 and maggy.soul==0)
 assert(not m:ConvertHeart(maggy),'already rotten gives no extra healing')
 assert(m:State(cain).pending and cain.pills[0]==1)
 assert(m:BlockInput(cain,0,2)==false and m:BlockInput(cain,2,1)==0)
-pressed=true;m:UpdatePlayer(cain);pressed=false
+pressed=true;m:UpdatePlayer(cain)
+assert(m:State(cain).pending, 'effect update must not poll trigger edges')
+paused=true;callbacks[7]();assert(m:State(cain).pending,'paused render must not consume')
+paused=false;cain.ControlsEnabled=false;callbacks[7]();assert(m:State(cain).pending,'disabled controls must not consume')
+cain.ControlsEnabled=true;callbacks[7]();pressed=false
+assert(m:State(cain).pending and not cain.lastEffect,'render queues only; no native effect in render')
+m:UpdatePlayer(cain)
 assert(not m:State(cain).pending and cain.pills[0]==0 and cain.lastEffect==13)
 assert(not cain.items[654] and next(other.items)==nil,'no False PHD or unrelated player effects')
 assert(m:BlockInput(cain,0,1)==nil,'pocket items unlock after taking pill')
@@ -73,4 +80,15 @@ assert(m:BlockInput(judas,0,2)==false,'sticky Purple Heart');assert(m:BlockInput
 assert(callbacks[6](nil,{Variant=300},cain)==true,'cannot replace required pill')
 judas.trinkets[2]=35;assert(callbacks[6](nil,{Variant=350},judas)==true,'cannot swap out sticky trinket when full')
 assert(callbacks[6](nil,{Variant=300},other)==nil)
+-- Render input requests are transient, not save/floor/reset state.
+pressed=true;callbacks[7]();pressed=false
+assert(m.cainInputRequests[cain.InitSeed], 'render captured edge')
+m:OnGameStart(true);m:UpdatePlayer(cain)
+assert(m:State(cain).pending, 'Continue must discard queued input edge')
+pressed=true;callbacks[7]();pressed=false
+stage=3;m:GiveCainPill(cain,false);m:UpdatePlayer(cain)
+assert(m:State(cain).pending, 'new floor must discard old-floor input edge')
+pressed=true;callbacks[7]();pressed=false
+m:Apply(cain,true);m:UpdatePlayer(cain)
+assert(m:State(cain).pending, 'key kit restore must discard queued input edge')
 print('PASS: 4-room/unique-room trigger, red/soul conversions, all-rotten cap, per-player isolation, negative pill consume/unlock/new-floor/continue, sticky trinket, baseline items. Engine black-heart/half-heart behavior and input timing still require game testing.')

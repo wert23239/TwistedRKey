@@ -1,0 +1,18 @@
+PASS source-only: Isaac D6 base draft
+PASS source-only: Azazel random branch 1
+PASS source-only: Azazel random branch 2
+PASS source-only: Azazel random branch 3
+PASS source-only: Azazel random branch 4
+PASS source-only: Lost random branch 1 remains flying (grounded NOT implemented)
+PASS source-only: Lost random branch 2 remains flying (grounded NOT implemented)
+PASS source-only: Lost random branch 3 remains flying (grounded NOT implemented)
+PASS source-only: Eden grants Experimental Treatment + Blessing only (extra boss NOT implemented here)
+PASS source-only: Jacob grants Dr Fetus + Reflection + No 2 to passed player only
+PASS source-only: Tainted Isaac grants three ordinary Sacred Orbs (inverse filter NOT implemented here)
+PASS source-only: Tainted Lost Baggy + Crystal Ball; level read is not planetarium hook
+PASS source-only: Tainted Cain grants Moms Shovel; no conversion implementation in setup
+PASS source-only: Tainted Keeper Magneto + Cursed Penny; no shop-door hook in setup
+PASS source-only: Tainted Eden TMTRAINER only; no death callback in setup
+PASS source-only: Tainted Jacob Birthright grant
+PASS source-only: undefined character leaves inventory alone and logs
+TOTAL: 17/17 source contracts PASS. Incomplete draft behaviors are documented limitations, NOT gameplay passes.

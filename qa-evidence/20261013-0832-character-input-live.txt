@@ -1,0 +1,28 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Binding of Isaac: Repentance+ v1.9.7.12.J273
+[INFO] - Lua Debug: [INPUT QA] slot {"slot":3}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":0,"type":3,"stage":1,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0},"dropFrames":0,"tick":0,"phase":"cain-init"}
+[INFO] - Lua Debug: [INPUT QA] ASSERT {"label":"Cain pending before raw input","actual":{"pill":1,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":true,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"result":"PASS","expected":"Cain pending real pill"}
+[INFO] - Lua Debug: [INPUT QA] READY {"action":"press Q once","before":{"pill":1,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":true,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"seed":"NEYM G3R4"}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":1,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":true,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"dropFrames":0,"tick":0,"phase":"cain-input"}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":1,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":true,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"dropFrames":0,"tick":300,"phase":"cain-input"}
+[INFO] - Lua Debug: [INPUT QA] native-pill-use {"flags":1,"effect":15,"actual":{"pill":0,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":false,"tears":10.0,"luck":1.0,"speed":1.2999999523163}}
+[INFO] - Lua Debug: [INPUT QA] raw-Q {"controller":0,"controls":true,"pressed":true,"rawAction":true}
+[INFO] - Lua Debug: [INPUT QA] ASSERT {"label":"raw Q consumes exact negative pill and unlocks","actual":{"pill":0,"type":2,"stage":1,"nativeEffect":15,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":false,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"result":"PASS","expected":"empty pill; native exact selected negative effect; pending false"}
+[INFO] - Lua Debug: [INPUT QA] negative-effect-stats {"after":{"pill":0,"type":2,"stage":1,"nativeEffect":15,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":false,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"before":{"pill":1,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":true,"tears":10.0,"luck":1.0,"speed":1.2999999523163}}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":0,"type":2,"stage":1,"t0":19,"t1":0,"shot":1.0,"effect":15,"purple":false,"range":180.0,"pending":false,"tears":10.0,"luck":1.0,"speed":1.2999999523163},"dropFrames":0,"tick":0,"phase":"cain-release"}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":1,"type":2,"stage":2,"t0":19,"t1":0,"shot":1.0,"effect":25,"purple":false,"range":180.0,"pending":true,"tears":12.895023345947,"luck":1.0,"speed":1.2999999523163},"dropFrames":0,"tick":0,"phase":"cain-floor"}
+[INFO] - Lua Debug: [INPUT QA] ASSERT {"label":"new engine floor re-locks after raw consumption","actual":{"pill":1,"type":2,"stage":2,"t0":19,"t1":0,"shot":1.0,"effect":25,"purple":false,"range":180.0,"pending":true,"tears":12.895023345947,"luck":1.0,"speed":1.2999999523163},"result":"PASS","expected":"floor2 pending pill"}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":1,"type":2,"stage":2,"t0":19,"t1":0,"shot":1.0,"effect":25,"purple":false,"range":180.0,"pending":true,"tears":12.895023345947,"luck":1.0,"speed":1.2999999523163},"dropFrames":0,"tick":0,"phase":"judas-init"}
+[INFO] - Lua Debug: [INPUT QA] ASSERT {"label":"Judas has real Purple Heart before hold","actual":{"pill":0,"type":3,"stage":1,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0},"result":"PASS","expected":"actual Purple Heart slot"}
+[INFO] - Lua Debug: [INPUT QA] READY {"action":"hold LEFT CTRL for >=2 seconds then release","actual":{"pill":0,"type":3,"stage":1,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0}}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":0,"type":3,"stage":1,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0},"dropFrames":0,"tick":0,"phase":"judas-hold"}
+[INFO] - Lua Debug: [INPUT QA] WAIT {"actual":{"pill":0,"type":3,"stage":1,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0},"dropFrames":0,"tick":300,"phase":"judas-hold"}
+[INFO] - Lua Debug: [INPUT QA] ASSERT {"label":"raw held-drop retains actual Purple Heart","actual":{"pill":0,"type":3,"stage":1,"rawHoldFrames":105,"t0":5,"t1":0,"shot":1.0,"purple":true,"speed":1.0,"tears":10.0,"luck":0.0,"range":260.0},"result":"PASS","expected":"Purple Heart retained after >=90 frames raw Ctrl"}
+[INFO] - Lua Debug: [INPUT QA] DONE {"reason":"raw Cain Q and Judas held Ctrl; debug floor transition; not organic combat"}
+[INFO] - Isaac has shut down successfully 
+
+#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>

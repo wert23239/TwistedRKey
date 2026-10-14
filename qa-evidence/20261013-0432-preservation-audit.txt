@@ -1,0 +1,7 @@
+Isaac-PC read-only audit, Oct13 04:32 work lane
+Backup C:\Users\perfe\IsaacResumedBackup-20261013-0402
+Compared recursive save/extra-save/mod/mod-data entering files against current installed paths. Nested path concatenations parenthesized.
+AUDIT files=70 mismatches=0
+GAME running=False
+HELPER present=False (VOID/DEATH/LATE QA tags)
+No Windows changes or live testing in this lane. This rechecks70 entering files, not the2477 game-root recovery set. Original pre0002 living-chain omission unresolved.

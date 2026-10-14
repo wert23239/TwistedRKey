@@ -64,7 +64,7 @@ function Items:OnGameStart(continued)
             needle = "Keep Bloody Lust#Red-health hits subtract twice its corresponding damage gain#Penalty resets each floor#Ordinary damage-ups still work",
             bow = "Filled red, soul and black health gains cap at half a heart#Includes healing from HP-up items#Does not increase incoming damage",
             bird = "On damage, a hostile bird pursues you for this room and the next#The bird can hurt you",
-            resurrection = "Lose a life when leaving a floor#Your normal extra lives still work#No spare life means game over",
+            resurrection = "Lose a life when clearing the final boss of a floor#Your normal extra lives still work#No spare life means game over",
         }
         for id, text in pairs(descriptions) do EID:addCollectible(self.ids[id], text, NAMES[id]) end
     end
@@ -218,7 +218,13 @@ function Items:Init(mod, tracker, mechanics, setups)
     mod:AddCallback(ModCallbacks.MC_POST_EFFECT_UPDATE, function(_, effect)
         local p = effect:GetData().twistedOwner
         if not p or not p:Exists() or (self:State(p).birdRooms or 0) <= 0 then effect:Remove(); return end
-        effect.Velocity = effect.Velocity * 0.7 + (p.Position - effect.Position):Resized(1.1)
+        -- Custom ENTITY_EFFECT variants do not integrate Velocity in the native engine.
+        -- Keep pursuit momentum in Lua and advance once here, leaving engine velocity zero.
+        local data = effect:GetData()
+        data.twistedBirdVelocity = (data.twistedBirdVelocity or Vector.Zero) * 0.7
+            + (p.Position - effect.Position):Resized(1.1)
+        effect.Position = effect.Position + data.twistedBirdVelocity
+        effect.Velocity = Vector.Zero
         if effect.Position:Distance(p.Position) < 14 and effect.FrameCount % 20 == 0 then
             p:TakeDamage(1, 0, EntityRef(effect), 30)
         end

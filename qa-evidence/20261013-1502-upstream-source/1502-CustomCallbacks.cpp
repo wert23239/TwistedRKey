@@ -1,0 +1,6775 @@
+#include <lua.hpp>
+#include <optional>
+#include <cstring>
+
+#include "IsaacRepentance.h"
+#include "../ImGuiFeatures/LogViewer.h"
+#include "LuaCore.h"
+#include "HookSystem.h"
+#include "LuaWeapon.h"
+#include "LuaLevelGenerator.h"
+#include "Log.h"
+#include "../Patches/XMLData.h"
+#include "Level.h"
+#include "../LuaInit.h"
+#include "../Patches/MainMenuBlock.h"
+#include "../Patches/XMLData.h"
+#include "../Patches/EntityPlus.h"
+#include "ASMPatcher.hpp"
+#include "ASMDefinition.h"
+#include "CustomCallbacks.h"
+
+//Callback tracking for optimizations
+std::bitset<500> CallbackState;  // For new REPENTOGON callbacks. I dont think we will add 500 callbacks but lets set it there for now
+std::bitset<75> VanillaCallbackState;  // For vanilla callbacks & reimplementations of them.
+HOOK_STATIC(Isaac,SetBuiltInCallbackState, (const int callbackid, bool enable)-> void, __cdecl){
+	size_t id = static_cast<size_t>(callbackid);
+
+	if (id < VanillaCallbackState.size())
+	{
+		VanillaCallbackState.set(id, enable);
+		super(id, enable);
+		return;
+	}
+
+	id = id - 1000;
+	if (id < CallbackState.size())
+	{
+		CallbackState.set(id, enable);
+	}
+}
+
+HOOK_STATIC(Isaac, GetBuiltInCallbackState, (const int callbackid)-> bool, __cdecl) {
+	size_t id = static_cast<size_t>(callbackid);
+
+	if (id < VanillaCallbackState.size())
+	{
+		return super(id);
+	}
+
+	id = id - 1000;
+	if (id < CallbackState.size())
+	{
+		return CallbackState.test(id);
+	}
+	return false;
+}
+
+// MC_POST_TRIGGER_COLLECTIBLE_ADDED (1053)
+// (Runs for normal items, wisps, and innate collectibles)
+void CustomCallbacks::TriggerCollectibleAdded(Entity_Player& player, int collectibleID, bool firsttime, bool wispOrInnate) {
+	if (wispOrInnate) {
+		switch (collectibleID) {
+			// Fixes a minor bug where the effect/costume for the charge being ready may not trigger.
+			case COLLECTIBLE_MARS:
+				player._marsCooldown = 0;
+				player._marsUnk2 = -1;
+				player._marsUnkBool = true;
+				break;
+			// Properly updates the active hud stuff.
+			case COLLECTIBLE_BOOK_OF_VIRTUES:
+				player.UpdateBookOfVirtues(true);
+				break;
+		}
+	}
+
+    const int callbackid = 1053;
+    if (CallbackState.test(callbackid - 1000)) {
+        lua_State* L = g_LuaEngine->_state;
+        lua::LuaStackProtector protector(L);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+        lua::LuaCaller(L).push(callbackid)
+            .push(collectibleID)
+            .push(&player, lua::Metatables::ENTITY_PLAYER)
+            .push(collectibleID)
+            .push(firsttime)
+            .push(wispOrInnate)
+            .call(1);
+    }
+}
+
+static bool s_RestoringFamiliarStates = false;
+HOOK_METHOD(Entity_Familiar, WispInit, () -> void) {
+    super();
+
+    if (!s_RestoringFamiliarStates && this->_variant == 237 && this->_player && ItemConfig::IsValidCollectible(this->_subtype)) {
+        CustomCallbacks::TriggerCollectibleAdded(*this->_player, this->_subtype, false, true);
+    }
+}
+HOOK_METHOD(Entity_Player, RestoreGameState_PostLevelInit, (GameStatePlayer* saveState) -> void) {
+    s_RestoringFamiliarStates = true;
+    super(saveState);
+    s_RestoringFamiliarStates = false;
+}
+
+//PRE/POST_ADD_COLLECTIBLE (1004/1005)
+void ProcessPostAddCollectible(int type, int charge, bool firsttime, int slot, int vardata, Entity_Player* player) {
+    CustomCallbacks::TriggerCollectibleAdded(*player, type, firsttime, false);
+
+	const int callbackid = 1005;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(type)
+			.push(type)
+			.push(charge)
+			.push(firsttime)
+			.push(slot)
+			.push(vardata)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddCollectible, (int type, int charge, bool firsttime, int slot, int vardata, int unk) -> void) {
+	const int callbackid = 1004; 
+	if (CallbackState.test(callbackid - 1000)) {
+
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua::LuaCaller caller(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults res = caller.push(callbackid)
+			.push(type)
+			.push(type)
+			.push(charge)
+			.push(firsttime)
+			.push(slot)
+			.push(vardata)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!res) {
+			if (lua_istable(L, -1)) {
+				int result[5] = { type, charge, firsttime, slot, vardata };
+				for (int i = 1; i <= 5; i++) {
+					lua_pushinteger(L, i);
+					lua_gettable(L, -2);
+					if (i == 3 && lua_isboolean(L, -1)) {  // I   need to check the type
+						result[i - 1] = lua_toboolean(L, -1);
+					} else if (i != 3 && lua_isinteger(L, -1)) {
+						result[i - 1] = (int)lua_tointeger(L, -1);
+					}
+					lua_pop(L, 1);
+				}
+				super(result[0], result[1], result[2], result[3], result[4], unk);
+				ProcessPostAddCollectible(result[0], result[1], result[2], result[3], result[4], this);
+				return;
+			}
+			else if (lua_isboolean(L, -1))
+			{
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isinteger(L, -1))
+			{
+				super((int)lua_tointeger(L, -1), charge, firsttime, slot, vardata, unk);
+				ProcessPostAddCollectible((int)lua_tointeger(L, -1), charge, firsttime, slot, vardata, this);
+				return;
+			}
+		}
+	}
+
+	super(type, charge, firsttime, slot, vardata, unk);
+	ProcessPostAddCollectible(type, charge, firsttime, slot, vardata, this);
+}
+
+// 1010 used to have GRID_ROCK_UPDATE, now free
+
+//HUD_UPDATE (id: 1020)
+
+HOOK_METHOD(HUD, Update, () -> void) {
+	const int callbackid = 1020;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid).call(1);
+	}
+	super();
+}
+
+//HUD_UPDATE callback end
+
+//HUD_POST_UPDATE (id: 1021)
+
+HOOK_METHOD(HUD, PostUpdate, () -> void) {
+	const int callbackid = 1021;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid).call(1);
+	}
+	super();
+}
+
+//HUD_POST_UPDATE callback end
+
+//HUD_RENDER (1022) and POST_HUD_RENDER (1024)
+
+HOOK_METHOD(HUD, Render, () -> void) {
+	const int precallbackid = 1022;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(precallbackid).call(1);
+	}
+
+	super();
+
+	const int postcallbackid = 1024;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(postcallbackid).call(1);
+	}
+}
+
+//(POST_)HUD_RENDER callbacks end
+
+
+//Character menu render Callback(id:1023
+//Moved to ASMCallbacks
+/*HOOK_METHOD(MenuManager, RenderButtonLayout, () -> void) {
+	super();
+	const int callbackid = 1023;
+	MainMenuInputBlock::_enabled = false;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid).call(1);
+	}
+	MainMenuInputBlock::_enabled = true;
+	if ((this->_state | (1 << 8)) == this->_state) {
+		MainMenuInputBlock::_enabled = false;	//kill off if we are in the game transition
+	};
+}*/
+
+//Character menu render Callback end
+
+//SFX_PRE/POST_PLAY (id: 1030/1031)
+void ProcessPostSFXPlay(int ID, float Volume, int FrameDelay, bool Loop, float Pitch, float Pan)
+{
+	const int callbackid = 1031;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(ID)
+			.push(ID)
+			.push(Volume)
+			.push(FrameDelay)
+			.push(Loop)
+			.push(Pitch)
+			.push(Pan)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(SFXManager, Play, (int ID, float Volume, int FrameDelay, bool Loop, float Pitch, float Pan) -> void) {
+	const int callbackid = 1030;
+	if (!CallbackState.test(callbackid - 1000)) {
+		super(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+		ProcessPostSFXPlay(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+		return;
+	}
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(ID)
+			.push(ID)
+			.push(Volume)
+			.push(FrameDelay)
+			.push(Loop)
+			.push(Pitch)
+			.push(Pan)
+			.call(1);
+	if (!result) {
+		if (lua_istable(L, -1)) {
+			if (lua_rawlen(L, -1) == 6) {
+				ID = lua::callbacks::ToInteger(L, 1);
+				Volume = (float) lua::callbacks::ToNumber(L, 2);
+				FrameDelay = lua::callbacks::ToInteger(L, 3);
+				Loop = lua::callbacks::ToBoolean(L, 4);
+				Pitch = (float) lua::callbacks::ToNumber(L, 5);
+				Pan = (float) lua::callbacks::ToNumber(L, 6);
+				super(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+				ProcessPostSFXPlay(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+				return;
+			}
+		}
+		else if (lua_isboolean(L, -1)) {
+			if (!lua_toboolean(L, -1)) { // this particular if statement can't be combined with the one above it, or it fails to register false properly
+				return;
+			}
+		}
+	}
+	super(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+	ProcessPostSFXPlay(ID, Volume, FrameDelay, Loop, Pitch, Pan);
+}
+//SFX_PRE/POST_PLAY callbacks end
+
+// PRE/POST_X_COLLISION callbacks START
+struct CollisionInputs {
+	Entity* entity;
+	Entity* collider;
+	bool low;
+	bool override_vanilla_pre_collision;
+
+	lua::Metatables vanilla_metatable = lua::Metatables::ENTITY;
+	const char* luabridge_metatable = nullptr;
+
+	void SetMetatable(const lua::Metatables metatable) {
+		vanilla_metatable = metatable;
+	}
+	void SetMetatable(const char* metatable) {
+		luabridge_metatable = metatable;
+	}
+};
+
+struct PreCollisionResult {
+	bool skip_internal_code = false;
+	std::optional<bool> override_result = std::nullopt;
+};
+
+// Runs either a PRE_X_COLLISION or POST_X_COLLISION callback (they push the same parameters).
+lua::LuaResults RunCollisionCallback(const CollisionInputs& inputs, const int callbackid, lua_State* L) {
+	int discriminator = *inputs.entity->GetVariant();
+	if (inputs.vanilla_metatable == lua::Metatables::ENTITY_NPC) {
+		discriminator = *inputs.entity->GetType();
+	}
+	else if (inputs.vanilla_metatable == lua::Metatables::ENTITY_KNIFE) {
+		discriminator = *inputs.entity->GetSubType();
+	}
+
+	lua::LuaCaller& lua_caller = lua::LuaCaller(L).push(callbackid).push(discriminator);
+	if (inputs.luabridge_metatable != nullptr) {
+		lua_caller.pushLuabridge(inputs.entity, inputs.luabridge_metatable);
+	}
+	else {
+		lua_caller.push(inputs.entity, inputs.vanilla_metatable);
+	}
+	return lua_caller.push(inputs.collider, lua::Metatables::ENTITY)
+		.push(inputs.low)
+		.call(1);
+}
+
+// New PRE_X_COLLISION code with table return functionality.
+PreCollisionResult ProcessPreCollisionCallback(const CollisionInputs& inputs, const int callbackid) {
+	PreCollisionResult result;
+
+	if (inputs.override_vanilla_pre_collision ? VanillaCallbackState.test(callbackid) : CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults lua_result = RunCollisionCallback(inputs, callbackid, L);
+
+		if (!lua_result) {
+			if (lua_isboolean(L, -1)) {
+				// Vanilla boolean returns always skip internal code.
+				result.skip_internal_code = true;
+				result.override_result = lua_toboolean(L, -1);
+			}
+			else if (lua_istable(L, -1)) {
+				// New table return format.
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					if (lua_isstring(L, -2) && lua_isboolean(L, -1)) {
+						const std::string key = lua_tostring(L, -2);
+						const bool value = lua_toboolean(L, -1);
+						if (key == "SkipCollisionEffects") {
+							result.skip_internal_code = value;
+						}
+						else if (key == "Collide") {
+							result.override_result = !value;
+						}
+					}
+					lua_pop(L, 1);
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+// POST_X_COLLISION
+void ProcessPostCollisionCallback(const CollisionInputs& inputs, const int callbackid) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		RunCollisionCallback(inputs, callbackid, L);
+	}
+}
+
+// Handles both PRE_X_COLLISION and POST_X_COLLISION and decides whether or not to collide/execute the internal collision code.
+bool HandleCollisionCallbacks(const CollisionInputs& inputs, const int precallbackid, const int postcallbackid, std::function<bool(Entity*, bool)> super_lambda) {
+	const PreCollisionResult pre_collision_result = ProcessPreCollisionCallback(inputs, precallbackid);
+
+	bool result = false;
+
+	if (!pre_collision_result.skip_internal_code) {
+		// Call the internal collision code.
+		result = super_lambda(inputs.collider, inputs.low);
+		// Only run POST_X_COLLISION if the internal collision code ran.
+		ProcessPostCollisionCallback(inputs, postcallbackid);
+	}
+	if (pre_collision_result.override_result.has_value()) {
+		result = *pre_collision_result.override_result;
+	}
+	return result;
+}
+
+// "super" is wrapped into a lambda so that I can share the logic for all the collision callbacks without shoving it all into the macro.
+#define _COLLISION_SUPER_LAMBDA() [this](Entity* collider, bool low) { return super(collider, low); }
+#define HOOK_COLLISION_CALLBACKS(_type, _metatable, _overridevanillaprecollision, _precallback, _postcallback) \
+HOOK_METHOD(_type, HandleCollision, (Entity* collider, bool low) -> bool) { \
+	CollisionInputs inputs = { this, collider, low, _overridevanillaprecollision }; \
+	inputs.SetMetatable(_metatable); \
+	return HandleCollisionCallbacks(inputs, _precallback, _postcallback, _COLLISION_SUPER_LAMBDA()); \
+}
+
+HOOK_COLLISION_CALLBACKS(Entity_Player, lua::Metatables::ENTITY_PLAYER, true, 33, 1231)
+HOOK_COLLISION_CALLBACKS(Entity_Tear, lua::Metatables::ENTITY_TEAR, true, 42, 1233)
+HOOK_COLLISION_CALLBACKS(Entity_Familiar, lua::Metatables::ENTITY_FAMILIAR, true, 26, 1235)
+HOOK_COLLISION_CALLBACKS(Entity_Bomb, lua::Metatables::ENTITY_BOMB, true, 60, 1237)
+HOOK_COLLISION_CALLBACKS(Entity_Pickup, lua::Metatables::ENTITY_PICKUP, true, 38, 1239)
+HOOK_COLLISION_CALLBACKS(Entity_Knife, lua::Metatables::ENTITY_KNIFE, true, 53, 1243)
+HOOK_COLLISION_CALLBACKS(Entity_Projectile, lua::Metatables::ENTITY_PROJECTILE, true, 46, 1245)
+HOOK_COLLISION_CALLBACKS(Entity_NPC, lua::Metatables::ENTITY_NPC, true, 30, 1247)
+HOOK_COLLISION_CALLBACKS(Entity_Slot, lua::metatables::EntitySlotMT, false, 1240, 1241)
+
+// Nullify the vanilla pre-collision callbacks.
+HOOK_METHOD(LuaEngine, PrePlayerCollide, (Entity_Player* player, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreTearCollision, (Entity_Tear* tear, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreFamiliarCollision, (Entity_Familiar* fam, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreBombCollision, (Entity_Bomb* bomb, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PrePickupCollision, (Entity_Pickup* pickup, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreKnifeCollision, (Entity_Knife* knife, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreProjectileCollision, (Entity_Projectile* proj, Entity* collider, bool low) -> int) { return 0; }
+HOOK_METHOD(LuaEngine, PreNPCCollision, (Entity_NPC* npc, Entity* collider, bool low) -> int) { return 0; }
+// PRE/POST_X_COLLISION callbacks END
+
+// POST_LASER_COLLISION (1249) (PRE_LASER_COLLISION lives in ASMPatches land)
+HOOK_METHOD(Entity_Laser, DoDamage, (Entity* entity, float damage) -> void) {
+	super(entity, damage);
+
+	const int callbackid = 1249;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_LASER)
+			.push(entity, lua::Metatables::ENTITY)
+			.call(1);
+	}
+}
+
+// Returns true if the Update logic should be skipped.
+bool RunPreUpdateCallback(Entity* entity, const lua::Metatables metatable, const int callbackid) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller& lua_caller = lua::LuaCaller(L).push(callbackid);
+		if (metatable == lua::Metatables::ENTITY_KNIFE) {
+			lua_caller.push(*entity->GetSubType());
+		}
+		else {
+			lua_caller.push(*entity->GetVariant());
+		}
+		lua::LuaResults result = lua_caller.push(entity, metatable).call(1);
+
+		if (!result && lua_isboolean(L, -1)) {
+			return lua_toboolean(L, -1);
+		}
+	}
+	return false;
+}
+
+// Still call Entity::Update() if we skip the subclass' update,
+// since that aligns with how MC_PRE_NPC_UPDATE works.
+#define HOOK_PRE_UPDATE_CALLBACK(_type, _metatable, _callbackid) \
+HOOK_METHOD(_type, Update, () -> void) { \
+	if (!RunPreUpdateCallback(this, _metatable, _callbackid)) { \
+		super(); \
+	} else { \
+		((Entity*)this)->Original_Update(); \
+	} \
+}
+
+// PRE_X_UPDATE (1160 ~ 1168) (PRE_SLOT_UPDATE is 1169)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Player, lua::Metatables::ENTITY_PLAYER, 1160)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Tear, lua::Metatables::ENTITY_TEAR, 1161)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Familiar, lua::Metatables::ENTITY_FAMILIAR, 1162)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Bomb, lua::Metatables::ENTITY_BOMB, 1163)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Pickup, lua::Metatables::ENTITY_PICKUP, 1164)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Knife, lua::Metatables::ENTITY_KNIFE, 1165)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Projectile, lua::Metatables::ENTITY_PROJECTILE, 1166)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Laser, lua::Metatables::ENTITY_LASER, 1167)
+HOOK_PRE_UPDATE_CALLBACK(Entity_Effect, lua::Metatables::ENTITY_EFFECT, 1168)
+
+// NPC_PICK_TARGET
+HOOK_METHOD(Entity_NPC, GetPlayerTarget, () -> Entity*) {
+	Entity* unmodifiedTarget = super();
+
+	const int callbackid = 1222;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults lua_result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetType())
+			.push(this, lua::Metatables::ENTITY_NPC)
+			.push(unmodifiedTarget, lua::Metatables::ENTITY)
+			.call(1);
+
+		if (!lua_result && lua_isuserdata(L, -1)) {
+			return lua::GetLuabridgeUserdata<Entity*>(L, -1, lua::Metatables::ENTITY, "Entity");
+		}
+	}
+
+	return unmodifiedTarget;
+}
+
+// PRE_ROOM_COLLISION_PASS (1227)
+void CustomCallbacks::PRE_ROOM_COLLISION_PASS()
+{
+	const int callbackId = 1227;
+	if (!CallbackState.test(callbackId - 1000)) { return; }
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults lua_result = lua::LuaCaller(L).push(callbackId)
+		.pushnil()
+		.call(1);
+}
+
+// PRE_PLAYER_TAKE_DMG
+// (Runs before holy mantle, etc)
+HOOK_METHOD(Entity_Player, TakeDamage, (float damage, unsigned long long damageFlags, EntityRef* source, int damageCountdown) -> bool) {
+	const int callbackid = 1008;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults lua_result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(damage)
+			.push(damageFlags)
+			.push(source, lua::Metatables::ENTITY_REF)
+			.push(damageCountdown)
+			.call(1);
+
+		if (!lua_result && lua_isboolean(L, -1) && lua_toboolean(L, -1) == false) {
+			return false;
+		}
+	}
+
+	return super(damage, damageFlags, source, damageCountdown);
+}
+
+// PRE/POST_PLAYER_ADD_HEARTS
+std::optional<int> PreAddHeartsCallbacks(Entity_Player* player,int hearts, int heartcallbackid, std::optional<bool> boolval) {
+	const int callbackid = 1009;
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaCaller caller = lua::LuaCaller(L).push(callbackid)
+		.push(heartcallbackid)
+		.push(player, lua::Metatables::ENTITY_PLAYER)
+		.push(hearts)
+		.push(heartcallbackid);
+
+	if (boolval == std::nullopt) {
+		caller = caller.pushnil();
+	}
+	else {
+		caller = caller.push(boolval.value());
+	}
+
+	lua::LuaResults result=caller.call(1);
+
+	if (!result) {
+		if (lua_isinteger(L, -1)) {
+			 return (int)lua_tointeger(L, -1);
+		}
+	}
+	return std::nullopt;
+}
+
+void PostAddHeartsCallbacks(Entity_Player* player, int hearts, int heartcallbackid, std::optional<bool> boolval) {
+	const int callbackid = 1010;
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaCaller caller = lua::LuaCaller(L).push(callbackid)
+		.push(heartcallbackid)
+		.push(player, lua::Metatables::ENTITY_PLAYER)
+		.push(hearts)
+		.push(heartcallbackid);
+
+	if (boolval == std::nullopt) {
+		caller = caller.pushnil();
+	}
+	else {
+		caller = caller.push(boolval.value());
+	}
+
+	lua::LuaResults result = caller.call(1);
+
+	return;
+}
+
+HOOK_METHOD(Entity_Player, AddHearts, (int hearts, bool unk, bool retBool) -> void) {	//red hp
+	if (!CallbackState.test(1009 - 1000)) {
+		super(hearts, unk, retBool);
+	}
+	else{
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, hearts, 1<<0, std::nullopt);	//do not pass unk
+		hearts = heartcount.value_or(hearts);
+		super(hearts, unk, retBool);
+	}
+
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, hearts, 1 << 0, std::nullopt);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddMaxHearts, (int amount, bool ignoreKeeper) -> void) {	//max hearts
+	if (CallbackState.test(1009 - 1000)) {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 1, ignoreKeeper);
+		amount = heartcount.value_or(amount);
+	}
+
+	const int healthType = this->GetHealthType();
+	const bool noHeartContainers = healthType == 1 || healthType == 2 || healthType == 4;
+	if (noHeartContainers && amount < 0 && this->_maxHearts > 0) {
+		// If the player has heart containers somehow when they shouldn't be able to, the game won't let you remove them.
+		// This added logic allows "illegal" max hearts to be removed properly.
+		// We do enforce that health type changes convert heart containers if necessary in the GetHealthType hook, but having
+		// this logic as well allows mods to potentially convert the invalid health themselves if they want.
+		trigger_max_hearts_removed(std::min(-amount, this->_maxHearts));
+		this->_maxHearts = std::max(this->_maxHearts + amount, 0);
+		this->_redHearts = std::min(this->_redHearts, this->_maxHearts + this->_boneHearts * 2);
+		AdjustBlackHearts();
+		update_greeds_gullet();
+		update_red_hearts();
+		update_golden_hearts(false);
+		update_bone_hearts();
+	} else {
+		super(amount, ignoreKeeper);
+	}
+	
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 1, ignoreKeeper);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddSoulHearts, (int amount, bool unk) -> void) {	//soul hp
+	if (CallbackState.test(1009 - 1000)) {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 2, std::nullopt);
+		amount = heartcount.value_or(amount);
+	}
+
+	// Failsafe for the possibility of the forgotten having soul hearts, which is not supposed to happen since AddSoulHearts redirects to The Soul.
+	// In this situation the soul hearts on The Forgotten would be impossible to remove for the same reason.
+	// This was previously only known to happen via the Revive function, which was fixed, but still putting a failsafe here just in case.
+	// Allow "illegal" soul hearts to be removed from the forgotten if they happen to exist. Ideally this should never happen.
+	if (this->GetPlayerType() == PLAYER_THEFORGOTTEN && amount < 0 && this->_soulHearts > 0) {
+		int illegalSoulHearts = this->_soulHearts;
+		this->_soulHearts = 0;
+		if (amount < -illegalSoulHearts) {
+			super(amount + illegalSoulHearts, unk);
+		}
+	} else {
+		super(amount, unk);
+	}
+
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 2, std::nullopt);
+	}
+	return;
+}
+
+
+HOOK_METHOD(Entity_Player, AddBlackHearts, (int amount) -> void) {	//black
+	if (!CallbackState.test(1009 - 1000)) {
+		super(amount);
+	}
+	else {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1<<3, std::nullopt);
+		amount = heartcount.value_or(amount);
+		super(amount);
+	}
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 3, std::nullopt);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddEternalHearts, (int amount) -> void) {	//eternal
+	if (!CallbackState.test(1009 - 1000) && !CallbackState.test(1010 - 1000)) {
+		super(amount);
+	}
+	else {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 4, std::nullopt);
+		amount = heartcount.value_or(amount);
+		super(amount);
+	}
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 4, std::nullopt);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddGoldenHearts, (int amount, bool retBool) -> void) {	//golden
+	if (!CallbackState.test(1009 - 1000)) {
+		super(amount, retBool);
+	}
+	else {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 5, std::nullopt);
+		amount = heartcount.value_or(amount);
+		super(amount, retBool);
+	}
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 5, std::nullopt);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddBoneHearts, (int amount) -> void) {	//bone
+	if (!CallbackState.test(1009 - 1000)) {
+		super(amount);
+	}
+	else {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 6, std::nullopt);
+		amount = heartcount.value_or(amount);
+		super(amount);
+	}
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 6, std::nullopt);
+	}
+	return;
+}
+
+HOOK_METHOD(Entity_Player, AddRottenHearts, (int amount, bool unk) -> void) {	//rotten
+	if (CallbackState.test(1009 - 1000)) {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 7, std::nullopt);	//do not pass unk
+		amount = heartcount.value_or(amount);
+	}
+
+	// Fix a vanilla oversight where _rottenHearts can be set to a negative value.
+	if (amount < -this->_rottenHearts) {
+		super(-this->_rottenHearts, unk);
+	} else {
+		super(amount, unk);
+	}
+
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 7, std::nullopt);
+	}
+}
+
+HOOK_METHOD(Entity_Player, AddBrokenHearts, (int amount) -> void) {	//broken
+	if (!CallbackState.test(1009 - 1000)) {
+		super(amount);
+	}
+	else {
+		std::optional<int> heartcount = PreAddHeartsCallbacks(this, amount, 1 << 8, std::nullopt);
+		amount = heartcount.value_or(amount);
+		super(amount);
+	}
+	if (CallbackState.test(1010 - 1000)) {
+		PostAddHeartsCallbacks(this, amount, 1 << 8, std::nullopt);
+	}
+}
+
+
+//PRE/POST_ENTITY_THROW (1040/1041)
+void ProcessPostEntityThrow(Vector* Velocity, Entity_Player* player, Entity* ent) {
+	const int callbackid = 1041;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			//.push(ent->GetType())
+			.pushnil()
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.push(ent, lua::Metatables::ENTITY)
+			.pushUserdataValue(*Velocity, lua::Metatables::VECTOR)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Entity_Player, ThrowHeldEntity, (Vector* Velocity) -> Entity*) {
+	if (!CallbackState.test(1040 - 1000) && !CallbackState.test(1041 - 1000)) { 
+		return super(Velocity);
+	}
+	lua_State* L = g_LuaEngine->_state;
+	Entity* heldEntity = this->GetHeldEntity();
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults results = lua::LuaCaller(L).push(1040)
+		//.push((*heldEntity)->GetType())
+		.pushnil()
+		.push(this, lua::Metatables::ENTITY_PLAYER)
+		.push(heldEntity, lua::Metatables::ENTITY)
+		.pushUserdataValue(*Velocity, lua::Metatables::VECTOR)
+		.call(1);
+
+	if (!results) {
+		if (lua_isuserdata(L, -1)) {
+			Velocity = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			Entity* res = super(Velocity);
+			ProcessPostEntityThrow(Velocity, this, res);
+			return res;
+		}
+		else {
+			Entity* res = super(Velocity);
+			ProcessPostEntityThrow(Velocity, this, res);
+			return res;
+		}
+	}
+	else
+	{
+		return super(Velocity);
+	}
+}
+//PRE/POST_ENTITY_THROW end
+
+//PLAYER_INIT_POST_LEVEL_INIT_STATS (1042)
+HOOK_METHOD(Entity_Player, InitPostLevelInitStats, () -> void) {
+	const int callbackid = 1042;
+	super();
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		Entity_Player* ent = (Entity_Player*)this;
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(ent, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+}
+
+//PRE_ROOM_EXIT (1043) (currently using Entity_Player::TriggerRoomExit as the base)
+HOOK_METHOD(Entity_Player, TriggerRoomExit, (bool unk) -> void) {
+	const int callbackid = 1043;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		Entity_Player* ent = (Entity_Player*)this;
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(ent, lua::Metatables::ENTITY_PLAYER)
+			.push(unk)
+			.call(1);
+	}
+	super(unk);
+}
+
+//PRE_MUSIC_PLAY Callback (id: 1034 enum pending)
+HOOK_METHOD(Music, Play, (int musicid, float volume) -> void) {
+	const int callbackid = 1034;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(musicid)
+			.push(musicid)
+			.push(volume)
+			.push(false)
+			.call(1);
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				int tablesize = (int)lua_rawlen(L, -1);
+				if (tablesize == 2) {
+					super(lua::callbacks::ToInteger(L, 1), (float) lua::callbacks::ToNumber(L, 2));
+					return;
+				}
+			}
+			else if (lua_isinteger(L, -1)) {
+				int newId = (int)lua_tointeger(L, -1);
+				if (g_Manager->_musicmanager._currentId != newId) {
+					super(newId, volume);
+				}
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(musicid, volume);
+}
+
+HOOK_METHOD(Music, Crossfade, (int musicid, float faderate) -> void) {
+	const int callbackid = 1034;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(musicid)
+			.push(musicid)
+			.push(faderate)
+			.push(true)
+			.call(1);
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				int tablesize = (int)lua_rawlen(L, -1);
+				if (tablesize == 2) {
+					super(lua::callbacks::ToInteger(L, 1), (float) lua::callbacks::ToNumber(L, 2));
+					return;
+				}
+			}
+			else if (lua_isinteger(L, -1)) {
+				super((int)lua_tointeger(L, -1), faderate);
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(musicid, faderate);
+}
+//PRE_MUSIC_PLAY Callback (id: 1034 enum pending)
+
+//PRE_MUSIC_LAYER_TOGGLE (1035)
+HOOK_METHOD(Music, EnableLayer, (int id, bool instant) -> void) {
+	const int callbackid = 1035;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(id)
+			.push(id)
+			.push(true)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				super((int)lua_tointeger(L, -1), instant);
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return; // False, meaning "layer should stay disabled"
+				}
+			}
+		}
+	}
+	super(id, instant);
+}
+
+HOOK_METHOD(Music, DisableLayer, (int id) -> void) {
+	const int callbackid = 1035;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(id)
+			.push(id)
+			.push(false)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				super((int)lua_tointeger(L, -1));
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return; // True, meaning "layer should stay enabled"
+				}
+			}
+		}
+	}
+	super(id);
+}
+
+//PRE_LEVEL_INIT Callback (id: 1060 enum pending)
+HOOK_METHOD(Level, Init, (bool unk) -> void) {
+	levelASM.ForceSpecialQuest = 0;
+
+	const int callbackid = 1060;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.call(1);
+	}
+	super(unk);
+}
+//PRE_LEVEL_INIT Callback (id: 1060 enum pending)
+
+//PRE/POST_RESTOCK_SHOP (id: 1070/1071)
+bool ProcessPreRestockCallback(bool Partial) {
+	const int callbackid = 1070;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(Partial)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+void ProcessPostRestockCallback(bool Partial) {
+	const int callbackid = 1071;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(Partial)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Room, ShopRestockFull, () -> void) {
+	if (ProcessPreRestockCallback(false)) {
+		super();
+		ProcessPostRestockCallback(false);
+	}
+}
+
+HOOK_METHOD(Room, ShopRestockPartial, () -> void) {
+	if (ProcessPreRestockCallback(true)) {
+		super();
+		ProcessPostRestockCallback(true);
+	}
+}
+
+//PRE_CHANGE_ROOM (id :1061)
+HOOK_METHOD(Level, ChangeRoom, (int roomId, int dimension) -> void) {
+	const int callbackid = 1061;
+	if (!CallbackState.test(callbackid - 1000)) { return super(roomId, dimension); }
+	lua_State* L = g_LuaEngine->_state;
+
+	lua::LuaStackProtector protector(L);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.pushnil()
+		.push(roomId)
+		.push(dimension)
+		.call(1);
+
+	if (!result) {
+		if (lua_istable(L, -1)) {
+			if (lua_rawlen(L, -1) == 2) {
+				const int changedRoomId = lua::callbacks::ToInteger(L, 1);
+				const int changedDimension = lua::callbacks::ToInteger(L, 2);
+
+				RoomDescriptor* roomDesc = GetRoomByIdx(changedRoomId, changedDimension);
+				
+				if (!roomDesc || !roomDesc->Data) {
+					logViewer.AddLog(LogViewer::Game, "MC_PRE_CHANGE_ROOM: Tried to switch to room with Idx %d and dimension %d, but it doesn't exist\n", changedRoomId, changedDimension);
+					super(roomId, dimension);
+				}
+				else {
+					g_Game->_leaveDoor = -1;
+					super(changedRoomId, changedDimension);
+				}
+				
+			}
+		}
+		else {
+			super(roomId, dimension);
+		}
+	}
+}
+
+
+//Morph Callbacks (id:1215-1212)
+void PostNPCMorph(Entity_NPC* npc, int EntityType, int Variant, int SubType) {
+	const int callbackid = 1214;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(npc, lua::Metatables::ENTITY_NPC)
+			.push(EntityType)
+			.push(Variant)
+			.push(SubType)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Entity_NPC, Morph, (int EntityType, int Variant, int SubType, int Championid) -> void) {
+	const int callbackid = 1212;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(this, lua::Metatables::ENTITY_NPC)
+			.push(EntityType)
+			.push(Variant)
+			.push(SubType)
+			.push(Championid)
+			.call(1);
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				int tablesize = (int)lua_rawlen(L, -1);
+				if (tablesize == 4) {
+					int pretype = *(this->GetType());
+					int prevar = *(this->GetVariant());
+					int presub = *(this->GetSubType());
+					super(lua::callbacks::ToInteger(L, 1), lua::callbacks::ToInteger(L, 2), lua::callbacks::ToInteger(L, 3), lua::callbacks::ToInteger(L, 4));
+					PostNPCMorph(this, pretype, prevar, presub);
+					return;
+				}
+				else if (tablesize == 3) {
+					int pretype = *(this->GetType());
+					int prevar = *(this->GetVariant());
+					int presub = *(this->GetSubType());
+					super(lua::callbacks::ToInteger(L, 1), lua::callbacks::ToInteger(L, 2), lua::callbacks::ToInteger(L, 3), Championid);
+					PostNPCMorph(this, pretype, prevar, presub);
+					return;
+				}
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	int pretype = *(this->GetType());
+	int prevar = *(this->GetVariant());
+	int presub = *(this->GetSubType());
+	super(EntityType, Variant, SubType, Championid);
+	PostNPCMorph(this, pretype, prevar, presub);
+}
+
+
+void PostPickupMorph(Entity_Pickup* itm, int EntityType, int Variant, int SubType, bool KeepPrice, bool KeepSeed, bool IgnoreModifiers) {
+	const int callbackid = 1215;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(itm, lua::Metatables::ENTITY_PICKUP)
+			.push(EntityType)
+			.push(Variant)
+			.push(SubType)
+			.push(KeepPrice)
+			.push(KeepSeed)
+			.push(IgnoreModifiers)
+			.call(1);
+	}
+}
+
+
+HOOK_METHOD(Entity_Pickup, Morph, (int EntityType, int Variant, int SubType, bool KeepPrice, bool KeepSeed, bool IgnoreModifiers) -> void) {
+	const int callbackid = 1213;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(this, lua::Metatables::ENTITY_PICKUP)
+			.push(EntityType)
+			.push(Variant)
+			.push(SubType)
+			.push(KeepPrice)
+			.push(KeepSeed)
+			.push(IgnoreModifiers)
+			.call(1);
+
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				int tablesize = (int)lua_rawlen(L, -1);
+				if (tablesize == 6) {
+					int pretype = *(this->GetType());
+					int prevar = *(this->GetVariant());
+					int presub = *(this->GetSubType());
+					super(lua::callbacks::ToInteger(L, 1), lua::callbacks::ToInteger(L, 2), lua::callbacks::ToInteger(L, 3), lua::callbacks::ToBoolean(L, 4), lua::callbacks::ToBoolean(L, 5), lua::callbacks::ToBoolean(L, 6));
+					PostPickupMorph(this, pretype, prevar, presub, KeepPrice, KeepSeed, IgnoreModifiers);
+					return;
+				}
+				else if (tablesize == 3) {
+					int pretype = *(this->GetType());
+					int prevar = *(this->GetVariant());
+					int presub = *(this->GetSubType());
+					super(lua::callbacks::ToInteger(L, 1), lua::callbacks::ToInteger(L, 2), lua::callbacks::ToInteger(L, 3), KeepPrice, KeepSeed, IgnoreModifiers);
+					PostPickupMorph(this, pretype, prevar, presub, KeepPrice, KeepSeed, IgnoreModifiers);
+					return;
+				}
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	int pretype = *(this->GetType());
+	int prevar = *(this->GetVariant());
+	int presub = *(this->GetSubType());
+	super(EntityType, Variant, SubType, KeepPrice, KeepSeed, IgnoreModifiers);
+	PostPickupMorph(this, pretype, prevar, presub, KeepPrice, KeepSeed, IgnoreModifiers);
+}
+//end of Pre_Morph callvacks
+
+
+
+//PRE/POST_COMPLETION_MARKS_RENDER (id: 1216/1217)
+void PostMarksRender(CompletionWidget* cmp, Vector* pos, Vector* scale) {
+	const int callbackid = 1217;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(cmp->GetANM2(), lua::Metatables::SPRITE)
+			.push(pos, lua::Metatables::VECTOR)
+			.push(scale, lua::Metatables::VECTOR)
+			.push(cmp->CharacterId)
+			.call(1);
+	}
+
+}
+HOOK_METHOD(CompletionWidget, Render, (Vector* pos, Vector* scale) -> void) {
+	const int callbackid = 1216;
+	if (!(CallbackState.test(callbackid - 1000)|| CallbackState.test((callbackid + 1) - 1000))) { super(pos, scale); return; }
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.pushnil()
+		.push(this->GetANM2(), lua::Metatables::SPRITE)
+		.push(pos, lua::Metatables::VECTOR)
+		.push(scale, lua::Metatables::VECTOR)
+		.push(this->CharacterId)
+		.call(1);
+
+	if (!result) {
+		if (lua_isboolean(L, -1)) {
+			if (lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+		else {
+			super(pos, scale);
+			PostMarksRender(this, pos, scale);
+		}
+	}
+}
+
+//PRE/POST_PAUSE_SCREEN_RENDER (id: 1218/1219)
+void PostPauseScreenRender(PauseScreen* paws) {
+	const int callbackid = 1219;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(&paws->mainsprite, lua::Metatables::SPRITE)
+			.push(&paws->statssprite, lua::Metatables::SPRITE)
+			.call(1);
+	}
+
+
+}
+HOOK_METHOD(PauseScreen, Render, () -> void) {
+	const int callbackid = 1218;
+	if (!(CallbackState.test(callbackid - 1000) || CallbackState.test((callbackid + 1) - 1000))) { super(); return; }
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.pushnil()
+		.push(&this->mainsprite, lua::Metatables::SPRITE)
+		.push(&this->statssprite, lua::Metatables::SPRITE)
+		.call(1);
+
+	if (!result) {
+		if (lua_isboolean(L, -1)) {
+			if (lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+		else {
+			super();
+			PostPauseScreenRender(this);
+		}
+	}
+}
+
+
+//POST_PICKUP_SHOP_PURCHASE (id: 1062)
+void ProcessPostPickupShopPurchase(Entity_Pickup* pickup, Entity_Player* player, int moneySpent)
+{
+	const int callbackid = 1062;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*pickup->GetVariant())
+			.push(pickup, lua::Metatables::ENTITY_PICKUP)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.push(moneySpent)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Entity_Pickup, TriggerShopPurchase, (Entity_Player* player, int moneySpent) -> void) {
+
+	Entity_Pickup* pickup = (Entity_Pickup*)this;
+	super(player, moneySpent);
+	ProcessPostPickupShopPurchase(pickup, player, moneySpent);
+}
+
+
+//GET_FOLLOWER_PRIORITY (id: 1063)
+HOOK_METHOD(Entity_Familiar, GetFollowerPriority, () -> int) {
+	const int callbackid = 1063;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		Entity_Familiar* fam = (Entity_Familiar*)this;
+
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*fam->GetVariant())
+			.push(fam, lua::Metatables::ENTITY_FAMILIAR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				return (int)lua_tointeger(L, -1);
+			}
+
+		}
+	}
+	return super();
+}
+
+//PRE_USE_CARD (id: 1064)
+HOOK_METHOD(Entity_Player, UseCard, (int cardType, unsigned int useFlag) -> void) {
+	const int callbackid = 1064;
+	if (!CallbackState.test(callbackid - 1000)) { return super(cardType, useFlag); }
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	Entity_Player* plr = (Entity_Player*)this;
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.push(cardType)
+		.push(cardType)
+		.push(plr, lua::Metatables::ENTITY_PLAYER)
+		.push(useFlag)
+		.call(1);
+
+	if (!result) {
+		if (lua_isboolean(L, -1)) {
+			if (lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+		else {
+			super(cardType, useFlag);
+		}
+	}
+}
+
+
+//(PRE_)USE_PILL (id: 1065/10)
+HOOK_METHOD(Entity_Player, UsePill, (int pillEffect, int pillColor, unsigned int useFlag) -> void) {
+	// MC_PRE_USE_PILL
+	const int callbackid1 = 1065;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(pillEffect)
+			.push(pillEffect)
+			.push(pillColor)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(useFlag)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(pillEffect, pillColor, useFlag);
+
+	// MC_USE_PILL re-implementation
+	const int callbackid2 = 10;
+	if (VanillaCallbackState.test(10)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(pillEffect)
+			.push(pillEffect)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(useFlag)
+			.push(pillColor)
+			.call(1);
+	}
+}
+
+// Kill the original MC_USE_PILL callback.
+HOOK_METHOD(LuaEngine, UsePill, (int pillEffect, Entity_Player* player, unsigned int useFlags) -> void) {}
+
+//GET_SHOP_ITEM_PRICE (id: 1066)
+HOOK_METHOD(Room, GetShopItemPrice, (unsigned int entVariant, unsigned int entSubtype, int shopItemID) -> int) {
+	int price = super(entVariant, entSubtype, shopItemID);
+	const int callbackid = 1066;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(entVariant)
+			.push(entVariant)
+			.push(entSubtype)
+			.push(shopItemID)
+			.push(price)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				price = (int)lua_tointeger(L, -1);
+			}
+		}
+	}
+	return price;
+}
+
+// MC_PLAYER_GET_HEALTH_TYPE (1067) and MC_PRE_PLAYER_HEALTH_TYPE_CHANGE (1128)
+HOOK_METHOD(Entity_Player, GetHealthType, () -> int) {
+	int vanillaHealthType = super();
+	int defaultHealthType = vanillaHealthType;
+
+	// Check for HealthType specified in players.xml
+	if (const int xmlHealthType = XMLStuff.PlayerData->GetNumberAttributeById(this->GetPlayerType(), "healthtype"); xmlHealthType >= 0 && xmlHealthType <= 4) {
+		defaultHealthType = xmlHealthType;
+	}
+
+	EntityPlayerPlus* playerPlus = GetEntityPlayerPlus(this);
+
+	if (!playerPlus || playerPlus->disableHealthTypeModification) {
+		return defaultHealthType;
+	} else if (playerPlus->evaluatingHealthType) {
+		// Prevent recursion.
+		return playerPlus->previousHealthType > -1 ? playerPlus->previousHealthType : defaultHealthType;
+	}
+
+	playerPlus->evaluatingHealthType = true;
+
+	int previousHealthType = vanillaHealthType;
+
+	if (playerPlus->previousHealthType > -1) {
+		previousHealthType = playerPlus->previousHealthType;
+	}
+
+	int healthType = defaultHealthType;
+
+	if (playerPlus && playerPlus->customCacheResults.find("healthtype") != playerPlus->customCacheResults.end()) {
+		const int cacheHealthType = (int)playerPlus->customCacheResults["healthtype"];
+		if (cacheHealthType >= 0 && cacheHealthType <= 4) {
+			healthType = cacheHealthType;
+		}
+	}
+
+	// MC_PLAYER_GET_HEALTH_TYPE
+	const int callbackid = 1067;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(previousHealthType)
+			.push(defaultHealthType)
+			.call(1);
+
+		if (!result && lua_isinteger(L, -1)) {
+			const int luaHealthType = (int)lua_tointeger(L, -1);
+			if (luaHealthType >= 0 && luaHealthType <= 4) {
+				healthType = luaHealthType;
+			}
+		}
+	}
+
+	// If the player's health type changes dynamically, convert their health as necessary to avoid bugs from health they should not be able to have.
+	if (healthType != previousHealthType) {
+		// Update this right away to mitigate weirdness from any recursive calls.
+		playerPlus->previousHealthType = healthType;
+
+		bool convertHeartContainers = true;
+
+		// MC_PLAYER_HEALTH_TYPE_CHANGE
+		const int callbackid = 1128;
+		if (CallbackState.test(callbackid - 1000)) {
+			lua_State* L = g_LuaEngine->_state;
+			lua::LuaStackProtector protector(L);
+
+			lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+			lua::LuaCaller(L).push(callbackid)
+				.push(this->GetPlayerType())
+				.push(this, lua::Metatables::ENTITY_PLAYER)
+				.push(healthType)
+				.push(previousHealthType)
+				.push(defaultHealthType)
+				.call(1);
+		}
+
+		if (healthType == 1) {  // Soul
+			this->_redHearts = 0;
+			this->_rottenHearts = 0;
+			if (this->_maxHearts > 0) {
+				const int oldMaxHearts = this->_maxHearts;
+				this->trigger_max_hearts_removed(oldMaxHearts);
+				this->_maxHearts = 0;
+				if (convertHeartContainers) {
+					this->_soulHearts += oldMaxHearts;
+					// Shift masks to make it seem like the heart containers were converted "in place".
+					const int shift = oldMaxHearts / 2;
+					this->_blackHearts <<= shift;
+					this->_boneHeartsMask <<= shift;
+				} else if (this->_soulHearts == 0 && this->_boneHearts == 0) {
+					this->_soulHearts = 1;
+				}
+			}
+		} else if (healthType == 2) {  // No Health
+			this->_rottenHearts = 0;
+			this->_boneHeartsMask = 0;
+			this->_boneHearts = 0;
+			this->_eternalHearts = 0;
+			this->_redHearts = 0;
+			this->_blackHearts = 0;
+			this->_soulHearts = 1;
+			if (this->_maxHearts > 0) {
+				this->trigger_max_hearts_removed(this->_maxHearts);
+				this->_maxHearts = 0;
+			}
+		} else if (healthType == 3) {  // Coin
+			this->_rottenHearts = 0;
+			this->_boneHeartsMask = 0;
+			this->_boneHearts = 0;
+			this->_soulHearts = 0;
+			this->_blackHearts = 0;
+			if (this->_maxHearts == 0) {
+				this->_maxHearts = 2;
+			}
+			if (this->_redHearts < 2) {
+				this->_redHearts = 2;
+			} else if (this->_redHearts % 2 != 0) {
+				this->_redHearts++;
+			}
+		} else if (healthType == 4 && this->_maxHearts > 0) {  // Bone
+			if (convertHeartContainers) {
+				const int convertedBoneHearts = this->_maxHearts / 2;
+				for (int i = 0; i < convertedBoneHearts; i++) {
+					// Shift masks to make it seem like the heart containers were converted "in place".
+					this->_boneHeartsMask <<= 1;
+					this->_boneHeartsMask++;
+					this->_boneHearts++;
+				}
+			} else if (this->_soulHearts == 0 && this->_boneHearts == 0) {
+				if (this->_maxHearts > 2) {
+					this->trigger_max_hearts_removed(this->_maxHearts - 2);
+				}
+				this->_boneHearts = 1;
+				this->_boneHeartsMask = 1;
+			} else {
+				this->trigger_max_hearts_removed(this->_maxHearts);
+			}
+			this->_maxHearts = 0;
+
+			const int newMax = this->_boneHearts * 2;
+			if (this->_redHearts > newMax) {
+				this->_redHearts = newMax;
+			}
+		}
+
+		this->AdjustBlackHearts();
+		this->update_greeds_gullet();
+		this->update_red_hearts();
+		this->update_bone_hearts();
+		//this->update_golden_hearts();
+	}
+
+	playerPlus->evaluatingHealthType = false;
+
+	return healthType;
+}
+
+HOOK_STATIC(LuaEngine, PostPlayerInit, (Entity_Player* player) -> void, _stdcall) {
+	player->GetHealthType();  // Trigger GetHealthType callback on init.
+	super(player);
+}
+
+//PRE_FAMILIAR_RENDER (id: 1080)
+HOOK_METHOD(Entity_Familiar, Render, (Vector* offset) -> void) {
+	const int callbackid = 1080;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_FAMILIAR)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_NPC_RENDER (id: 1081)
+HOOK_METHOD(Entity_NPC, Render, (Vector* offset) -> void) {
+	const int callbackid = 1081;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetType())
+			.push(this, lua::Metatables::ENTITY_NPC)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR) 
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_PLAYER_RENDER (id: 1082)
+HOOK_METHOD(Entity_Player, Render, (Vector* offset) -> void) {
+	const int callbackid = 1082;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_PICKUP_RENDER (id: 1083)
+HOOK_METHOD(Entity_Pickup, Render, (Vector* offset) -> void) {
+	const int callbackid = 1083;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PICKUP)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_TEAR_RENDER (id: 1084)
+HOOK_METHOD(Entity_Tear, Render, (Vector* offset) -> void) {
+	const int callbackid = 1084;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_TEAR)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_PROJECTILE_RENDER (id: 1085)
+HOOK_METHOD(Entity_Projectile, Render, (Vector* offset) -> void) {
+	const int callbackid = 1085;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PROJECTILE)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_KNIFE_RENDER (id: 1086)
+HOOK_METHOD(Entity_Knife, Render, (Vector* offset) -> void) {
+	const int callbackid = 1086;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_KNIFE)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_EFFECT_RENDER (id: 1087)
+HOOK_METHOD(Entity_Effect, Render, (Vector* offset) -> void) {
+	const int callbackid = 1087;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_EFFECT)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE_BOMB_RENDER (id: 1088)
+HOOK_METHOD(Entity_Bomb, Render, (Vector* offset) -> void) {
+	const int callbackid = 1088;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_BOMB)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+}
+
+//PRE/POST_SLOT_RENDER (id: 1089/1090)
+HOOK_METHOD(Entity_Slot, Render, (Vector* offset) -> void) {
+	const int callbackid1 = 1089;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(offset);
+	const int callbackid2 = 1090;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.pushUserdataValue(*offset, lua::Metatables::VECTOR)
+			.call(1);
+	}
+}
+
+int ProtectedCallbackIntAssign(lua_State* L, int var, int pos) {
+	if (lua::callbacks::CheckInteger(L, pos))
+		var = lua::callbacks::ToInteger(L, pos);
+	return var;
+}
+
+bool noInfLoop = false;
+//PRE_GRID_ENTITY_SPAWN (id: 1100)
+HOOK_METHOD(Room, SpawnGridEntity, (int idx, unsigned int type, unsigned int variant, unsigned int seed, int vardata) -> bool) {
+	const int callbackid = 1100;
+	if (!noInfLoop && CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(type)
+			.push(type)
+			.push(variant)
+			.push(vardata)
+			.push(idx)
+			.push(seed)
+			.pushnil() // no GridEntityDesc
+			.call(1);
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				type = (GridEntityType)ProtectedCallbackIntAssign(L, type, 1);
+				variant = ProtectedCallbackIntAssign(L, variant, 2);
+				vardata = ProtectedCallbackIntAssign(L, vardata, 3);
+				seed = ProtectedCallbackIntAssign(L, seed, 4);
+			}
+			else if (lua_isuserdata(L, -1)) {
+				GridEntityDesc* desc = lua::GetLuabridgeUserdata<GridEntityDesc*>(L, -1, lua::Metatables::GRID_ENTITY_DESC, "GridEntityDesc");
+				noInfLoop = true;
+				return g_Game->_room->SpawnGridEntityDesc(idx, desc);
+			}
+			else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1))
+			{
+				return false;
+			}
+		}
+	}
+	noInfLoop = false;
+	return super(idx, type, variant, seed, vardata);
+}
+
+//also PRE_GRID_ENTITY_SPAWN (id: 1100), but for the override
+HOOK_METHOD(Room, SpawnGridEntityDesc, (int idx, GridEntityDesc* desc) -> bool) {
+	const int callbackid = 1100;
+	if (!noInfLoop && CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(desc->_type)
+			.push(desc->_type)
+			.push(desc->_variant)
+			.push(desc->_varData)
+			.push(idx)
+			.push(desc->_spawnSeed)
+			.push(desc, lua::Metatables::GRID_ENTITY_DESC) // yes GridEntityDesc
+			.call(1);
+
+		if (!result) {
+			if (lua_isuserdata(L, -1)) {
+				desc = lua::GetLuabridgeUserdata<GridEntityDesc*>(L, -1, lua::Metatables::GRID_ENTITY_DESC, "GridEntityDesc");
+			}
+			else if (lua_istable(L, -1)) {
+				int type = (GridEntityType)ProtectedCallbackIntAssign(L, desc->_type, 1);
+				int variant = ProtectedCallbackIntAssign(L, desc->_variant, 2);
+				int varData = ProtectedCallbackIntAssign(L, desc->_varData, 3);
+				int spawnSeed = ProtectedCallbackIntAssign(L, desc->_spawnSeed, 4);
+
+				noInfLoop = true;
+				return g_Game->_room->SpawnGridEntity(idx, type, variant, spawnSeed, varData);
+			}
+			else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1))
+			{
+				return false;
+			}
+		}
+	}
+	noInfLoop = false;
+	return super(idx, desc);
+}
+
+//POST_GRID_ENTITY_SPAWN (id: 1101)
+//GridEntity::Init doesn't appear to be inlined anymore, so it doesn't have to be patched in
+HOOK_METHOD(GridEntity, Init, (unsigned int Seed) -> void) {
+	super(Seed);
+
+	const int callbackid = 1101;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetDesc()->_type)
+			.push(this, lua::Metatables::GRID_ENTITY)
+			.call(1);
+	}
+};
+
+void postrenderbodyhead(const int callbackid,Entity_Player* playa, Vector* x) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(playa->GetPlayerType())
+			.push(playa, lua::Metatables::ENTITY_PLAYER)
+			.pushUserdataValue(*x, lua::Metatables::VECTOR)
+			.call(1);
+	}
+}
+
+//RenderHead Callback (id: 1038/1045)
+HOOK_METHOD(Entity_Player, RenderHead, (Vector* x) -> void) {
+	const int callbackid = 1038;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.pushUserdataValue(*x, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isuserdata(L, -1)) {
+				Vector* p = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+				super(p);
+				postrenderbodyhead(1045, this, p);
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(x);
+	postrenderbodyhead(1045, this, x);
+}
+
+//PRE_POST Renderbody Callback (id: 1039/1046)
+HOOK_METHOD(Entity_Player, RenderBody, (Vector* x) -> void) {
+	const int callbackid = 1039;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.pushUserdataValue(*x, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isuserdata(L, -1)) {
+				Vector* p = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+				super(p);
+				postrenderbodyhead(1046, this, p);
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(x);
+	postrenderbodyhead(1046, this, x);
+}
+
+void ProcessPostTriggerRoomClear(bool silent) {
+	const int callbackid = 1143;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(silent)
+			.call(1);
+	}
+}
+
+//PRE/POST_ROOM_TRIGGER_CLEAR (id: 1068 / 1143)
+HOOK_METHOD(Room, TriggerClear, (bool silent) -> void) {
+	const int callbackid = 1068;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(silent)
+			.call(1);
+	}
+	super(silent);
+	ProcessPostTriggerRoomClear(silent);
+}
+
+//PRE/POST_PLAYER_TRIGGER_ROOM_CLEAR (id: 1069 / 1138)
+HOOK_METHOD(Entity_Player, TriggerRoomClear, () -> void) {
+	const int callbackid = 1069;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+
+	}
+
+	super();
+
+	const int callbackid2 = 1138;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(*this->GetVariant())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+}
+
+// MC_PLAYER_GET_ACTIVE_MAX_CHARGE (below) can get triggered multiple times in a single call to some functions.
+// Some result caching is done here specifically for those functions, to reduce how many times the callback runs.
+// Unfortunately these callbacks can still run quite a few times per frame in some situations.
+bool cacheMaxChargeCallback = false;
+std::unordered_map<int, int> cachedMaxCharge;
+
+HOOK_METHOD(Entity_Player, ControlActiveItem, (int slot) -> void) {
+	cacheMaxChargeCallback = true;
+	cachedMaxCharge.clear();
+
+	super(slot);
+
+	cacheMaxChargeCallback = false;
+	cachedMaxCharge.clear();
+}
+
+HOOK_METHOD(Entity_Player, AddActiveCharge, (int charge, int slot, bool flashHUD, bool overcharge, bool force) -> int) {
+	cacheMaxChargeCallback = true;
+	cachedMaxCharge.clear();
+
+	const int result = super(charge, slot, flashHUD, overcharge, force);
+
+	cacheMaxChargeCallback = false;
+	cachedMaxCharge.clear();
+
+	return result;
+}
+
+HOOK_METHOD(PlayerHUD, RenderActiveItem, (unsigned int activeSlot, const Vector& pos, int playerHudLayout, float size, float alpha, bool unused) -> void) {
+	cacheMaxChargeCallback = true;
+	cachedMaxCharge.clear();
+
+	super(activeSlot, pos, playerHudLayout, size, alpha, unused);
+
+	cacheMaxChargeCallback = false;
+	cachedMaxCharge.clear();
+}
+
+//PLAYER_GET_ACTIVE_MAX_CHARGE (id: 1072)
+HOOK_OVERLOADED_METHOD(Entity_Player, GetActiveMaxCharge, int, (int, int), (int item, int vardata) -> int) {
+	const int normalMaxCharge = super(item, vardata);
+
+	const int callbackid = 1072;
+	if (item != 0 && CallbackState.test(callbackid - 1000)) {
+		if (cacheMaxChargeCallback && cachedMaxCharge.find(item) != cachedMaxCharge.end()) {
+			return cachedMaxCharge[item];
+		} else {
+			lua_State* L = g_LuaEngine->_state;
+			lua::LuaStackProtector protector(L);
+
+			lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+			lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+				.push(item)
+				.push(item)
+				.push(this, lua::Metatables::ENTITY_PLAYER)
+				.push(vardata)
+				.push(normalMaxCharge)
+				.call(1);
+
+			if (!result && lua_isinteger(L, -1)) {
+				const int newMaxCharge = std::max((int)lua_tointeger(L, -1), 0);
+				if (cacheMaxChargeCallback) {
+					cachedMaxCharge[item] = newMaxCharge;
+				}
+				return newMaxCharge;
+			}
+		}
+	}
+
+	return normalMaxCharge;
+}
+
+//PLAYER_GET_ACTIVE_MIN_USABLE_CHARGE (id: 1073)
+HOOK_METHOD(Entity_Player, GetActiveMinUsableCharge, (int slot) -> int) {
+	const int normalMinCharge = super(slot);
+
+	const int callbackid = 1073;
+	if (this->GetActiveItem(slot) != 0 && CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetActiveItem(slot))
+			.push(slot)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(normalMinCharge)
+			.call(1);
+
+		if (!result && lua_isinteger(L, -1)) {
+			return std::max((int)lua_tointeger(L, -1), 0);
+		}
+	}
+
+	return normalMinCharge;
+}
+
+HOOK_METHOD(Entity_Player, UseActiveItem, (short* resultFlags, int collectible, unsigned int useFlags, int activeSlot, int varData) -> void) {
+	if (collectible == COLLECTIBLE_NULL) {
+		*resultFlags = 1;
+		return;
+	}
+
+	// Reimplemented MC_PRE_USE_ITEM (23) to enable no-discharge preventions, and to ensure that MC_POST_USE_ITEM doesn't run if the use is prevented.
+	const int precallbackid = 23;
+	if (VanillaCallbackState.test(precallbackid)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(precallbackid)
+			.push(collectible)
+			.push(collectible)
+			.push(this->GetCollectibleRNG(collectible), lua::Metatables::RNG)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(useFlags)
+			.push(activeSlot)
+			.push(varData)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1) && lua_toboolean(L, -1)) {
+				// Default skip
+				*resultFlags = 1;
+				return;
+			} else if (lua_istable(L, -1)) {
+				// Skip, potentially without discharging.
+				lua_getfield(L, -1, "Discharge");
+				if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+					*resultFlags = 0;
+				} else {
+					*resultFlags = 1;
+				}
+				lua_pop(L, 1);
+				return;
+			}
+		}
+	}
+
+	super(resultFlags, collectible, useFlags, activeSlot, varData);
+
+	// MC_POST_USE_ITEM (1003)
+	const int postcallbackid = 1003;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		bool discharge = (*resultFlags) & (1 << 0);
+		bool removed = (*resultFlags) & (1 << 8);
+
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(postcallbackid)
+			.push(collectible)
+			.push(collectible)
+			.push(this->GetCollectibleRNG(collectible), lua::Metatables::RNG)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(useFlags)
+			.push(activeSlot)
+			.push(varData)
+			.push(discharge)
+			.push(removed)
+			.call(1);
+	}
+}
+
+// Gutted PreUseItem since we reimplement it above.
+HOOK_METHOD(LuaEngine, PreUseItem, (int collectibleType, RNG* rng, Entity_Player* player, unsigned int useFlags, int activeSlot, int customVarData) -> bool) {
+	return false;
+}
+
+//MC_PRE_REPLACE_SPRITESHEET (id: 1116)
+HOOK_METHOD(ANM2, ReplaceSpritesheet, (int LayerID, std::string& PngFilename) -> bool) {
+	const int callbackid1 = 1116;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(_filename.c_str())
+			.push(LayerID)
+			.push(PngFilename.c_str())
+			.call(1);
+
+		if (!result) {
+			if (lua_istable(L, -1)) {
+				LayerID = lua::callbacks::ToInteger(L, 1);
+
+				PngFilename = lua::callbacks::ToString(L, 2);
+			}
+		}
+	}
+
+	bool successful = super(LayerID, PngFilename);
+
+	const int callbackid2 = 1117;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(_filename.c_str())
+			.push(LayerID)
+			.push(PngFilename.c_str())
+			.call(1);
+	}
+
+	return successful;
+}
+
+//PLAYER_GET_HEART_LIMIT (id: 1074)
+HOOK_METHOD(Entity_Player, GetHealthLimit, (bool keeper) -> int) {
+	const int callbackid = 1074;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(super(keeper))
+			.push(keeper)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				return (int)lua_tointeger(L, -1);
+			}
+		}
+	}
+	return super(keeper);
+}
+
+//POST_SLOT_INIT (1121)
+HOOK_METHOD(Entity_Slot, Init, (unsigned int Type, unsigned int Variant, unsigned int SubType, unsigned int Seed) -> void) {
+	super(Type, Variant, SubType, Seed);
+	const int callbackid = 1121;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(Variant)
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.call(1);
+	}
+}
+
+// PRE/POST_SLOT_UPDATE (1169 / 1122)
+HOOK_METHOD(Entity_Slot, Update, () -> void) {
+	const int precallbackid = 1169;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(precallbackid)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.call(1);
+
+		if (!result && lua_isboolean(L, -1) && (bool)lua_toboolean(L, -1) == true) {
+			((Entity*)this)->Original_Update();
+			return;
+		}
+	}
+
+	super();
+
+	const int postcallbackid = 1122;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postcallbackid)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.call(1);
+	}
+}
+
+//PRE/POST_SLOT_CREATE_EXPLOSION_DROPS (1123/1124)
+HOOK_METHOD(Entity_Slot, CreateDropsFromExplosion, () -> void) {
+	const int callbackid1 = 1123;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super();
+	const int callbackid2 = 1124;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.call(1);
+	}
+}
+
+//PRE/POST_SLOT_SET_PRIZE_COLLECTIBLE (1125/1126)
+HOOK_METHOD(Entity_Slot, SetPrizeCollectible, (int id) -> void) {
+	const int callbackid1 = 1125;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.push(id)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isnumber(L, -1)) {
+				id = (int)lua_tonumber(L, -1);
+			}
+		}
+	}
+	super(id);
+	const int callbackid2 = 1126;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(*this->GetVariant())
+			.pushLuabridge(this, lua::metatables::EntitySlotMT)
+			.push(id)
+			.call(1);
+	}
+}
+
+//POST_ITEM_OVERLAY_UPDATE (id: 1075)
+HOOK_METHOD(ItemOverlay, Update, (bool unk) -> void) {
+	super(unk);
+	const int callbackid = 1075;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(_overlayID)
+			//.push(this, lua::metatables::ItemOverlayMT)
+			.push(_overlayID)
+			.push(unk)
+			.call(1);
+	}
+}
+
+//PRE/POST_ITEM_OVERLAY_SHOW (id: 1076, 1134)
+HOOK_METHOD_PRIORITY(ItemOverlay, Show, -100, (int overlayID, int delay, Entity_Player* player) -> void) {
+	lua_State* L = g_LuaEngine->_state;
+	const int callbackid1 = 1076;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(overlayID)
+			//.push(this, lua::metatables::ItemOverlayMT)
+			.push(overlayID)
+			.push(delay)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isnumber(L, -1)) {
+				overlayID = (int)lua_tonumber(L, -1);
+			}
+		}
+	}
+	super(overlayID, delay, player);
+	const int callbackid2 = 1134;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults postResult = lua::LuaCaller(L).push(callbackid2)
+			.push(overlayID)
+			//.push(this, lua::metatables::ItemOverlayMT)
+			.push(overlayID)
+			.push(delay)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+
+}
+
+//POST_PLAYER_NEW_ROOM_TEMP_EFFECTS (id: 1077)
+HOOK_METHOD(Entity_Player, TriggerNewRoom_TemporaryEffects, () -> void) {
+	super();
+
+	const int callbackid = 1077;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+}
+
+//POST_PLAYER_NEW_LEVEL (id: 1078)
+HOOK_METHOD(Entity_Player, TriggerNewStage, (bool FromPlayerUpdate) -> void) {
+	
+	super(FromPlayerUpdate);
+	const int callbackid = 1078;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(FromPlayerUpdate)
+			.push(_postLevelInitFinished)
+			.call(1);
+	}
+}
+
+//COMPLETION_MARK_GET 1047
+//POST_COMPLETION_MARK_GET 1048 // There are in CompletionTracker.cpp for convenience
+//(PRE/POST)_COMPLETION_EVENT (1049/1052) 
+HOOK_STATIC(Manager, RecordPlayerCompletion, (int completion) -> void, __stdcall) {
+	const int callbackid1 = 1049;
+	const int callbackid2 = 1052;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(completion)
+			.push(completion)
+			.call(1);
+
+		if (!result)
+		{
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1) == false)
+					return;
+			}
+			else if (lua_isinteger(L, -1)) {
+				int retCompletion = (int)lua_tointeger(L, -1);
+				if (retCompletion >= 0 && retCompletion <= 17)
+					completion = retCompletion;
+				else
+					return;
+			}
+		}
+	}
+
+	super(completion);
+
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid2)
+			.push(completion)
+			.push(completion)
+			.call(1);
+	}
+}
+
+// PRE/POST_RENDER_ACTIVE_ITEM moved to ASMCallbacks
+
+//PRE/POST_PLAYERHUD_RENDER_HEARTS (1118/1091)
+HOOK_METHOD(PlayerHUD, RenderHearts, (Vector* unk, ANM2* sprite, int playerHudLayout, float scale, Vector pos) -> void) {
+	if (this->GetPlayer()->_isCoopGhost) {
+		super(unk, sprite, playerHudLayout, scale, pos);
+		return;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+
+	Vector posToSend = pos;
+
+	// Fix the render position sent to the callback for the compact esau layout.
+	if (this->_playerHudIndex > 3 && playerHudLayout == 3) {
+		posToSend.y += 34;
+	}
+
+	const int callbackid1 = 1118;
+	if (CallbackState.test(callbackid1 - 1000)) {
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.pushnil()
+			.push(unk, lua::Metatables::VECTOR)
+			.push(sprite, lua::Metatables::SPRITE)
+			.pushUserdataValue(posToSend, lua::Metatables::VECTOR)
+			.push(scale)
+			.push(_player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(unk, sprite, playerHudLayout, scale, pos);
+
+	const int callbackid2 = 1091;
+	if (CallbackState.test(callbackid2 - 1000)) {
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid2)
+			.pushnil()
+			.push(unk, lua::Metatables::VECTOR)
+			.push(sprite, lua::Metatables::SPRITE)
+			.pushUserdataValue(posToSend, lua::Metatables::VECTOR)
+			.push(scale)
+			.push(_player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+}
+
+bool RunRenderSpecialHudElementCallback(int callbackid, PlayerHUD* playerhud, Vector* pos, float scale, bool isPre) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(playerhud->_player, lua::Metatables::ENTITY_PLAYER)
+			.pushUserdataValue(*pos, lua::Metatables::VECTOR)
+			.push(scale)
+			.call(1);
+
+		if (isPre && !result) {
+			if (lua_isboolean(L, -1)) {
+				return lua_toboolean(L, -1);
+			} else if (lua_isuserdata(L, -1)) {
+				Vector* newPos = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+				if (newPos) {
+					*pos = *newPos;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+// MC_PRE/POST_PLAYERHUD_RENDER_INVENTORY
+HOOK_METHOD(PlayerHUD, RenderInventory, (Vector* initialPos, float scale) -> void) {
+	Vector pos = *initialPos;
+	if (RunRenderSpecialHudElementCallback(1293, this, &pos, scale, true)) {
+		super(&pos, scale);
+		RunRenderSpecialHudElementCallback(1294, this, &pos, scale, false);
+	}
+}
+
+// MC_PRE/POST_PLAYERHUD_RENDER_POOP_SPELL_QUEUE
+HOOK_METHOD(PlayerHUD, RenderSpellQueue, (Vector* initialPos, float scale) -> void) {
+	Vector pos = *initialPos;
+	if (RunRenderSpecialHudElementCallback(1295, this, &pos, scale, true)) {
+		super(&pos, scale);
+		RunRenderSpecialHudElementCallback(1296, this, &pos, scale, false);
+	}
+}
+
+// MC_PRE/POST_PLAYERHUD_RENDER_CRAFTING_TABLE
+HOOK_METHOD(PlayerHUD, RenderCraftingTable, (Vector* initialPos, float scale) -> void) {
+	Vector pos = *initialPos;
+	if (RunRenderSpecialHudElementCallback(1297, this, &pos, scale, true)) {
+		super(&pos, scale);
+		RunRenderSpecialHudElementCallback(1298, this, &pos, scale, false);
+	}
+}
+
+//MC_PRE_GET_LIGHTING_ALPHA
+HOOK_METHOD(Room, GetLightingAlpha, () -> float) {
+	const int callbackid = 1150;
+	float originalAlpha = super();
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults result =  lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(originalAlpha)
+			.call(1);
+
+		if (!result && lua_isnumber(L,-1)) {
+			return (float)lua_tonumber(L, -1);
+		}
+	}
+	return originalAlpha;
+}
+
+//MC_PRE_GRID_LIGHTING_RENDER
+HOOK_METHOD(Room, RenderGridLight, (GridEntity* grid, Vector& offset) -> void) {
+	const int callbackid = 1151;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(grid->GetType())
+			.push(grid, lua::Metatables::GRID_ENTITY)
+			.pushUserdataValue(offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = offset + *lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+	super(grid, offset);
+}
+
+static bool MC_PRE_ENTITY_LIGHT_RENDER(Entity* ent, Vector& offset)
+{
+	const int callbackid = 1152;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*ent->GetType())
+			.push(ent, lua::Metatables::ENTITY)
+			.pushUserdataValue(offset, lua::Metatables::VECTOR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return true;
+				}
+			}
+			else if (lua_isuserdata(L, -1)) {
+				offset = offset + *lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+
+	return false;
+}
+
+//MC_PRE_ENTITY_LIGHTING_RENDER
+HOOK_METHOD(Room, RenderEntityLight, (Entity* ent, Vector& offset) -> void) {
+	
+	ANM2::StartLightRendering();
+	bool skip = MC_PRE_ENTITY_LIGHT_RENDER(ent, offset);
+	ANM2::EndLightRendering();
+
+	if (skip)
+	{
+		return;
+	}
+
+	super(ent, offset);
+}
+
+//PRE_PLAYER_APPLY_INNATE_COLLECTIBLE_NUM (1092) (DEPRECATED)
+HOOK_METHOD(Entity_Player, GetCollectibleNum, (int CollectibleID, bool OnlyCountTrueItems) -> int) {
+	const int callbackid = 1092;
+	int originalCount = super(CollectibleID, OnlyCountTrueItems);
+	int modCount = 0;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(modCount)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(CollectibleID)
+			.push(OnlyCountTrueItems)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				modCount = (int)lua_tointeger(L, -1);
+			}
+		}
+	}
+	return originalCount + modCount;
+}
+
+//PRE_PLAYER_HAS_COLLECTIBLE (1093) [currently lags with enabled debug 12, unused]
+/*HOOK_METHOD(Entity_Player, HasCollectible, (int CollectibleID, bool OnlyCountTrueItems) -> bool) {
+	const int callbackid = 1093;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(CollectibleID)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(CollectibleID)
+			.push(OnlyCountTrueItems)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				return lua_toboolean(L, -1);
+			}
+		}
+	}
+	return super(CollectibleID, OnlyCountTrueItems);
+}
+*/
+
+//PRE_MUSIC_PLAY_JINGLE (1094)
+HOOK_METHOD(Music, PlayJingle, (int musicId, int unusedInt, bool unusedBool) -> void) {
+	const int callbackid = 1094;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(musicId)
+			.push(musicId)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				super((int)lua_tointeger(L, -1), unusedInt, unusedBool);
+				return;
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+	super(musicId, unusedInt, unusedBool);
+}
+
+
+enum class eTriggerCollectibleRemovedFlags
+{
+	FLAG_REMOVE_FROM_PLAYER_FORM = 0,
+	FLAG_WISP = 1,
+	FLAG_INNATE = 2,
+
+	NUM_FLAGS
+};
+
+static constexpr uint32_t MC_TCR_FLAG_REMOVE_FROM_PLAYER_FORM = (uint32_t)eTriggerCollectibleRemovedFlags::FLAG_REMOVE_FROM_PLAYER_FORM;
+static constexpr uint32_t MC_TCR_FLAG_WISP = (uint32_t)eTriggerCollectibleRemovedFlags::FLAG_WISP;
+static constexpr uint32_t MC_TCR_FLAG_INNATE = (uint32_t)eTriggerCollectibleRemovedFlags::FLAG_INNATE;
+static constexpr uint32_t MC_TCR_NUM_FLAGS = (uint32_t)eTriggerCollectibleRemovedFlags::NUM_FLAGS;
+
+static constexpr std::bitset<MC_TCR_NUM_FLAGS> DEFAULT_TRIGGER_COLLECTIBLE_REMOVED_CONTEXT = 1 << MC_TCR_FLAG_REMOVE_FROM_PLAYER_FORM;
+static auto s_TriggerCollectibleRemovedContext = DEFAULT_TRIGGER_COLLECTIBLE_REMOVED_CONTEXT;
+
+void CustomCallbacks::TriggerInnateCollectibleRemoved(Entity_Player& player, int collectibleID)
+{
+    s_TriggerCollectibleRemovedContext.reset();
+    s_TriggerCollectibleRemovedContext.set(MC_TCR_FLAG_INNATE, true);
+    player.TriggerCollectibleRemoved(collectibleID);
+}
+
+//POST_TRIGGER_COLLECTIBLE_REMOVED (1095) 
+HOOK_METHOD(Entity_Player, TriggerCollectibleRemoved, (int collectibleID) -> void) {
+	const auto flags = s_TriggerCollectibleRemovedContext;
+	s_TriggerCollectibleRemovedContext = DEFAULT_TRIGGER_COLLECTIBLE_REMOVED_CONTEXT;
+
+	const bool removeFromPlayerForm = flags.test(MC_TCR_FLAG_REMOVE_FROM_PLAYER_FORM);
+	const bool wisp = flags.test(MC_TCR_FLAG_WISP);
+	const bool innate = flags.test(MC_TCR_FLAG_INNATE);
+	const bool wispOrInnate = wisp || innate;
+
+    // Reimplementation of nop'd out Stompy decrement.
+    // Wisps triggering this was weird, and provides no benefit. Why was it even part of this function when no other playerform counter is?
+    if ((collectibleID == COLLECTIBLE_LEO || collectibleID == COLLECTIBLE_MAGIC_MUSHROOM) && removeFromPlayerForm) {
+        this->IncrementPlayerFormCounter(13, -1);  // PLAYERFORM_STOMPY
+    }
+
+    // Reimplementation of nop'd out Heartbreak broken heart removal.
+    // Wisps can keep triggering this since its ""beneficial to the player"" but for innate copies, let's skip it.
+    if (collectibleID == COLLECTIBLE_HEARTBREAK && !innate) {
+        this->AddBrokenHearts(-3);
+    }
+
+	// Silly game doesn't remove the Mars null costume if removed as a wisp.
+	if (collectibleID == COLLECTIBLE_MARS && wispOrInnate && !this->HasCollectible(COLLECTIBLE_MARS, false)) {
+		this->RemoveCostume(g_Manager->GetItemConfig()->GetNullItem(58));
+	}
+
+	// Properly updates the active hud stuff.
+	if (collectibleID == COLLECTIBLE_BOOK_OF_VIRTUES && wispOrInnate) {
+		auto* activeDesc = this->GetActiveItemDesc(0);
+		if (activeDesc->_item == COLLECTIBLE_BOOK_OF_VIRTUES) {
+			activeDesc->_item = COLLECTIBLE_NULL;
+			activeDesc->_batteryCharge = 0;
+		}
+		this->UpdateBookOfVirtues(false);
+	}
+
+    super(collectibleID);
+
+    const int callbackid = 1095;
+    if (CallbackState.test(callbackid - 1000)) {
+        lua_State* L = g_LuaEngine->_state;
+        lua::LuaStackProtector protector(L);
+
+        lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+        lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+            .push(collectibleID)
+            .push(this, lua::Metatables::ENTITY_PLAYER)
+            .push(collectibleID)
+            .push(removeFromPlayerForm)
+            .push(wispOrInnate)
+            .call(1);
+    }
+}
+
+// __fastcall to simulate __thiscall
+static void __fastcall asm_add_remove_collectible_context(Entity_Player& player, bool removeFromPlayerForm, int32_t collectibleID)
+{
+	s_TriggerCollectibleRemovedContext.reset();
+	s_TriggerCollectibleRemovedContext.set(MC_TCR_FLAG_REMOVE_FROM_PLAYER_FORM, removeFromPlayerForm);
+	player.TriggerCollectibleRemoved(collectibleID);
+}
+
+static void Patch_PlayerRemoveCollectible_TriggerCollectibleRemoved()
+{
+	intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityPlayer_RemoveCollectible_TriggerCollectibleRemoved);
+	ZHL::Log("[REPENTOGON] Patching Entity_Player::RemoveCollectible for MC_POST_TRIGGER_COLLECTIBLE_REMOVED at %p\n", addr);
+
+	ASMPatch patch;
+
+	intptr_t resumeAddr = addr + 5;
+	constexpr size_t REMOVE_FROM_PLAYER_FORM_PARAM_NUMBER = 4;
+	constexpr size_t REMOVE_FROM_PLAYER_FORM_EBP_OFFSET = REMOVE_FROM_PLAYER_FORM_PARAM_NUMBER * 4 + 4; // stack offset + function prologue
+
+	patch.MoveFromMemory(ASMPatch::Registers::EBP, REMOVE_FROM_PLAYER_FORM_EBP_OFFSET, ASMPatch::Registers::EDX)
+		.AddInternalCall(asm_add_remove_collectible_context)
+		.AddRelativeJump((void*)resumeAddr);
+
+	sASMPatcher.PatchAt((void*)addr, &patch);
+}
+
+// __fastcall to simulate __thiscall
+static void __fastcall asm_add_remove_wisp_collectible_context(Entity_Player& player, void* unused_EDX, int32_t collectibleID)
+{
+	s_TriggerCollectibleRemovedContext.reset();
+	s_TriggerCollectibleRemovedContext.set(MC_TCR_FLAG_WISP, true);
+	player.TriggerCollectibleRemoved(collectibleID);
+}
+
+static void Patch_PlayerRecomputeWispCollectibles_TriggerCollectibleRemoved()
+{
+	intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityPlayer_RecomputeWispCollectibles_TriggerCollectibleRemoved);
+	ZHL::Log("[REPENTOGON] Patching Entity_Player::RecomputeWispCollectibles for MC_POST_TRIGGER_COLLECTIBLE_REMOVED at %p\n", addr);
+
+	ASMPatch patch;
+	patch.AddInternalCall(asm_add_remove_wisp_collectible_context);
+
+	sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+
+// Nop out the reduction of the PlayerForm counter for Stompy from TriggerCollectibleRemoved so that we can handle it and make it not trigger for wisps and innate items.
+static void Patch_PlayerTriggerCollectibleRemoved_Stompy()
+{
+    intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityPlayer_TriggerCollectibleRemoved_Stompy);
+    ZHL::Log("[REPENTOGON] Patching Entity_Player::RecomputeWispCollectibles for Stompy at %p\n", addr);
+
+    ASMPatch patch;
+    ByteBuffer buffer;
+    buffer.AddByte('\x90', 0xB);
+    patch.AddBytes(buffer);
+
+    sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+
+// Nop out the removal of 3 broken hearts for Heartbreak in TriggerCollectibleRemoved so that we can prevent it for innate items.
+static void Patch_PlayerTriggerCollectibleRemoved_Heartbreak()
+{
+    intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityPlayer_TriggerCollectibleRemoved_Heartbreak);
+    ZHL::Log("[REPENTOGON] Patching Entity_Player::TriggerCollectibleRemoved for Heartbreak at %p\n", addr);
+
+    ASMPatch patch;
+    ByteBuffer buffer;
+    buffer.AddByte('\x90', 0x11);
+    patch.AddBytes(buffer);
+
+    sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+
+
+static int s_AddingInnateTrinkets = 0;
+
+void CustomCallbacks::TriggerInnateTrinketsAdded(Entity_Player& player, unsigned int trinketID, int num) {
+    s_AddingInnateTrinkets = num;
+    player.TriggerTrinketAdded(trinketID, false);
+}
+
+//POST_TRIGGER_TRINKET_ADDED (1096) 
+HOOK_METHOD(Entity_Player, TriggerTrinketAdded, (unsigned int trinketID, bool firstTimePickingUp) -> void) {
+    int times = 1;
+    bool innate = false;
+
+    if (s_AddingInnateTrinkets > 0) {
+        times = s_AddingInnateTrinkets;
+        s_AddingInnateTrinkets = 0;
+        innate = true;
+        for (int i = 0; i < times; i++) {
+            super(trinketID, firstTimePickingUp);
+        }
+    } else {
+        super(trinketID, firstTimePickingUp);
+    }
+
+	const int callbackid = 1096;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(trinketID)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(trinketID)
+			.push(firstTimePickingUp)
+            .push(innate)
+			.call(1);
+	}
+}
+
+
+static int s_RemovingInnateTrinkets = 0;
+
+void CustomCallbacks::TriggerInnateTrinketsRemoved(Entity_Player& player, unsigned int trinketID, int num) {
+    s_RemovingInnateTrinkets = num;
+    player.TriggerTrinketRemoved(trinketID);
+}
+
+//POST_TRIGGER_TRINKET_REMOVED (1097) 
+HOOK_METHOD(Entity_Player, TriggerTrinketRemoved, (unsigned int trinketID) -> void) {
+    int times = 1;
+    bool innate = false;
+
+    if (s_RemovingInnateTrinkets > 0) {
+        times = s_RemovingInnateTrinkets;
+        s_RemovingInnateTrinkets = 0;
+        innate = true;
+        for (int i = 0; i < times; i++) {
+            super(trinketID);
+        }
+    } else {
+        super(trinketID);
+    }
+
+	const int callbackid = 1097;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(trinketID)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(trinketID)
+            .push(innate)
+			.call(1);
+	}
+}
+
+
+//POST_TRIGGER_WEAPON_FIRED (1098)
+HOOK_METHOD(Weapon, TriggerTearFired, (const Vector& dir, int FireAmount) -> void) {
+	super(dir, FireAmount);
+	const int callbackid = 1098;
+	Entity* ent = this->GetOwner();
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(callbackid)
+			.push(GetWeaponType())
+			.pushUserdataValue(dir, lua::Metatables::VECTOR)
+			.push(FireAmount)
+			.push(ent, lua::Metatables::ENTITY);
+		
+		WeaponData* data = new (caller.pushUd(sizeof(WeaponData), lua::metatables::WeaponMT)) WeaponData;
+		data->weapon = this;
+		if (Entity_Familiar* familiar = ent->ToFamiliar()) {
+			data->owner = familiar;
+		}
+		else if (Entity_Player* player = ent->ToPlayer()) {
+			data->owner = player;
+			for (int i = 0; i < 4; ++i) {
+				if (*(player->GetWeapon(i)) == this) {
+					data->slot = i;
+					break;
+				}
+			}
+		}
+
+		lua::LuaResults result = caller.call(1);
+	}
+}
+
+//POST_WEAPON_FIRE (1105)
+HOOK_METHOD(Weapon, Fire, (const Vector& dir, bool isShooting, bool isInterpolated)-> void) {
+	super(dir, isShooting, isInterpolated);
+	const int callbackid = 1105;
+	Entity* ent = this->GetOwner();
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(callbackid)
+			.push(this->GetWeaponType());
+		WeaponData* data = new (caller.pushUd(sizeof(WeaponData), lua::metatables::WeaponMT)) WeaponData;
+		data->weapon = this;
+		if (Entity_Familiar* familiar = ent->ToFamiliar()) {
+			data->owner = familiar;
+		}
+		else if (Entity_Player* player = ent->ToPlayer()) {
+			data->owner = player;
+			for (int i = 0; i < 4; ++i) {
+				if (*(player->GetWeapon(i)) == this) {
+					data->slot = i;
+					break;
+				}
+			}
+		}
+		caller.pushUserdataValue(dir, lua::Metatables::VECTOR)
+			.push(isShooting)
+			.push(isInterpolated)
+			.call(1);
+	}
+}
+
+//POST_GRID_ROCK_DESTROY (1011)
+void ProcessGridRockDestroy(GridEntity_Rock* gridRock, bool Immediate, EntityRef* Source, int type) {
+	const int callbackid = 1011;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(type)
+			.push(gridRock, lua::Metatables::GRID_ENTITY_ROCK)
+			.push(type)
+			.push(Immediate)
+			.push(Source, lua::Metatables::ENTITY_REF)
+			.call(1);
+	}
+}
+
+
+HOOK_METHOD(GridEntity_Rock, Destroy, (bool Immediate, EntityRef* Source) -> bool) {
+	bool result = super(Immediate, Source);
+	GridEntity_Rock* gridRock = (GridEntity_Rock*)this;
+	int gridType = gridRock->GetDesc()->_type;
+	if (result) ProcessGridRockDestroy(gridRock,Immediate, Source, gridType);
+	return result;
+}
+
+// MC_PRE_GRID_HURT (1017)
+bool RunPreGridHurtCallback(GridEntity* grid, lua::Metatables mt, int* damage, EntityRef* source) {
+	const int callbackid = 1017;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::Metatables mt = lua::Metatables::GRID_ENTITY;
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(grid->GetType())
+			.push(grid, mt)
+			.push(*damage)
+			.push(source, lua::Metatables::ENTITY_REF)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				const int newDamage = (int)lua_tointeger(L, -1);
+				if (newDamage >= 0) {
+					*damage = newDamage;
+				}
+			} else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+// MC_POST_GRID_HURT (1018)
+void RunPostGridHurtCallback(GridEntity* grid, lua::Metatables mt, int damage, EntityRef* source) {
+	const int callbackid = 1018;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::Metatables mt = lua::Metatables::GRID_ENTITY;
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(grid->GetType())
+			.push(grid, mt)
+			.push(damage)
+			.push(source, lua::Metatables::ENTITY_REF)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(GridEntity_Poop, Hurt, (int damage, EntityRef* source) -> bool) {
+	const bool canBeHurt = this->_desc._state != 1000;
+	if (canBeHurt && !RunPreGridHurtCallback(this, lua::Metatables::GRID_ENTITY_POOP, &damage, source)) {
+		return false;
+	}
+	bool result = super(damage, source);
+	if (canBeHurt && result) {
+		RunPostGridHurtCallback(this, lua::Metatables::GRID_ENTITY_POOP, damage, source);
+	}
+	return result;
+}
+
+HOOK_METHOD(GridEntity_TNT, Hurt, (int damage, EntityRef* source) -> bool) {
+	const bool canBeHurt = this->_desc._state < 4;
+	if (canBeHurt && !RunPreGridHurtCallback(this, lua::Metatables::GRID_ENTITY_TNT, &damage, source)) {
+		return false;
+	}
+	bool result = super(damage, source);
+	if (canBeHurt && result) {
+		RunPostGridHurtCallback(this, lua::Metatables::GRID_ENTITY_TNT, damage, source);
+	}
+	return result;
+}
+
+HOOK_METHOD(GridEntity_TNT, Destroy, (bool immediate, EntityRef* source) -> bool) {
+	if (!immediate) {
+		// The game doesn't pass along the source when it does this itself but there's no reason not to.
+		return this->Hurt(4, source);
+	}
+	return super(immediate, source);
+}
+
+//(POST_)GRID_HURT_DAMAGE (1012/1013)
+void ProcessPostGridHurtDamage(GridEntity* gridEnt, int type, Entity* ent, int damage, uint64_t damageFlags, float enemyDamage, bool ignoreGridCol) {
+	const int callbackid = 1013;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(type)
+			.push(gridEnt, lua::Metatables::GRID_ENTITY)
+			.push(ent, lua::Metatables::ENTITY)
+			.push(damage)
+			.push(damageFlags)
+			.push(enemyDamage)
+			.push(ignoreGridCol)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(GridEntity, hurt_func, (Entity* ent, float enemyDamage, int playerDamage, uint64_t damageFlags, bool ignoreGridCol) -> void) {
+	const int callbackid = 1012;
+	if (!(CallbackState.test(callbackid - 1000) || CallbackState.test((callbackid + 1) - 1000))) { super(ent, enemyDamage, playerDamage, damageFlags, ignoreGridCol); return; }
+	int gridType = this->GetDesc()->_type;
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.push(gridType)
+		.push(this, lua::Metatables::GRID_ENTITY)
+		.push(ent, lua::Metatables::ENTITY)
+		.push(playerDamage)
+		.push(damageFlags)
+		.push(enemyDamage)
+		.push(ignoreGridCol)
+		.call(1);
+
+	if (!result) {
+		if (lua_isboolean(L, -1)) {
+			if (lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+		else {
+			super(ent, enemyDamage, playerDamage, damageFlags, ignoreGridCol);
+			ProcessPostGridHurtDamage(this, gridType, ent, playerDamage, damageFlags, enemyDamage, ignoreGridCol);
+		}
+	}
+}
+
+// MC_POST_LEVEL_LAYOUT_GENERATED
+HOOK_METHOD(LevelGenerator, Generate, (int unk, bool unk2, bool unk3, bool unk4, unsigned int const& allowedShapes, unsigned int numDeadEnds, LevelGenerator_Room* startRoom) -> void) {
+	super(unk, unk2, unk3, unk4, allowedShapes, numDeadEnds, startRoom);
+
+	const int callbackId = 1099;
+	if (!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.push(12)
+		.push(this, lua::metatables::LevelGeneratorMT)
+		.call(0);
+
+	/* std::ofstream stream("repentogon.log", std::ios::app);
+	stream << "After the call to Generate: " << std::endl;
+	stream << " - Dead ends (" << GetDeadEnds()->size() << "): ";
+	for (int idx : *GetDeadEnds()) {
+		stream << idx << " ";
+	}
+	stream << std::endl;
+	stream << " - Non dead ends (" << GetNonDeadEnds()->size() << "): ";
+	for (int idx : *GetNonDeadEnds()) {
+		stream << idx << " ";
+	}
+	stream << std::endl;
+	stream << " - Rooms are as follows : " << std::endl;
+	for (LevelGenerator_Room const& room : *allRooms) {
+		stream << "\tRoom " << room._generationIndex << " at (" << room._gridColIdx << ", " << room._gridLineIdx << ") of shape " << room._shape << " with allowed door slots " << room._doors << " connects to ";
+		for (auto const& neighbor : room._neighbors) {
+			stream << neighbor << " ";
+		}
+		stream << std::endl;
+	}
+
+	stream.flush(); */
+}
+
+//POST_NIGHTMARE_SCENE_RENDER (1102)
+/*HOOK_METHOD(NightmareScene, Render, () -> void) {
+	super();
+	const int callbackid = 1102;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			//.push(this, lua::metatables::NightmareSceneMT)
+			.call(1);
+	}
+}
+*/
+
+//POST_NIGHTMARE_SCENE_SHOW (1103)
+HOOK_METHOD(NightmareScene, Show, (bool unk) -> void) {
+	super(unk);
+	const int callbackid = 1103;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			//.push(this, lua::metatables::NightmareSceneMT)
+			.push(unk)
+			.call(1);
+	}
+}
+
+// PRE_LEVEL_SELECT (1104)
+HOOK_METHOD(Level, SetStage, (int levelType, int stageType) -> void) {
+	// logViewer.AddLog("[REPENTOGON]", "Level::SetStage: stageid: %d, alt: %d\n", levelType, stageType);
+	const int callbackId = 1104;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		int startTop = lua_gettop(L);
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.push(levelType)
+			.push(stageType)
+			.call(LUA_MULTRET);
+
+		int resTop = lua_gettop(L);
+		if (startTop == resTop) {
+			super(levelType, stageType);
+			return;
+		}
+		else {
+			if (resTop == startTop + 1) {
+				if (lua_istable(L, -1)) {
+					lua_len(L, -1);
+					int len = (int)lua_tointeger(L, -1);
+					lua_pop(L, 1);
+
+					if (len != 2) {
+						logViewer.AddLog(LogViewer::Game, "MC_PRE_LEVEL_SELECT: Invalid return value, table contains %d elements, expected 2\n", len);
+						goto error;
+					}
+
+					lua_rawgeti(L, -1, 1);
+					int level = (int)lua_tointeger(L, -1);
+					lua_pop(L, 1);
+					if (g_Game->IsGreedMode()) {
+						if (level < 1 || level > 7) {
+							logViewer.AddLog(LogViewer::Game, "MC_PRE_LEVEL_SELECT: Invalid level stage, received %d, should be in range [1; 7] (detected greed(ier) mode)\n", level);
+							goto error;
+						}
+					}
+					else {
+						if (level < 1 || level > 14) {
+							logViewer.AddLog(LogViewer::Game, "MC_PRE_LEVEL_SELECT: Invalid level stage, received %d, should be in range [1; 14] (detected normal/hard mode)\n", level);
+							goto error;
+						}
+					}
+
+					lua_rawgeti(L, -1, 2);
+					int type = (int)lua_tointeger(L, -1);
+					lua_pop(L, 1);
+					if (type < 0 || type == 3 || type > 5) {
+						logViewer.AddLog(LogViewer::Game, "MC_PRE_LEVEL_SELECT: Invalid stage type, received value %d, expected 0, 1, 2, 4 or 5\n", type);
+						goto error;
+					}
+
+					super(level, type);
+					return;
+				}
+			}
+			else {
+				logViewer.AddLog(LogViewer::Game, "MC_PRE_LEVEL_SELECT: Invalid number of return values, got %d, expected 1\n", resTop - startTop);
+				goto error;
+			}
+		}
+
+	error:
+		super(levelType, stageType);
+	}
+	else {
+		super(levelType, stageType);
+	}
+}
+
+//MC_PRE_BACKDROP_CHANGE/INIT (1141-1142) --> it's chilling on xmldata.cpp for now, may be moved here later
+
+HOOK_METHOD(Backdrop, RenderWalls, (Vector const& renderOffset, ColorMod mod) -> void) {
+	const int callbackId = 1106;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.push(&mod, lua::Metatables::COLOR)
+			.call(0);
+	}
+
+	super(renderOffset, mod);
+}
+
+HOOK_METHOD(Backdrop, RenderFloor, (Vector const& renderOffset, ColorMod mod) -> void) {
+	const int callbackId = 1107;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.push(&mod, lua::Metatables::COLOR)
+			.call(0);
+	}
+
+	super(renderOffset, mod);
+}
+
+HOOK_METHOD(Backdrop, RenderWater, (Vector const& renderOffset) -> void) {
+	const int callbackId = 1108;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.call(0);
+	}
+
+	super(renderOffset);
+}
+
+HOOK_METHOD(Backdrop, pre_render_walls, () -> void) {
+	super();
+
+	const int callbackId = 1109;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.call(0);
+	}
+}
+
+//PLAYER_INIT_PRE_LEVEL_INIT_STATS (1127)
+HOOK_METHOD(Entity_Player, InitPreLevelInitStats, () -> void) {
+	const int callbackid = 1127;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		Entity_Player* ent = (Entity_Player*)this;
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(ent, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+	super();
+}
+
+//PRE_NEW_ROOM (1200)
+HOOK_METHOD(Room, Init, (int param_1, RoomDescriptor* descriptor) -> void) {
+	const int callbackid = 1200;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(this, lua::Metatables::ROOM)
+			.push(descriptor, lua::Metatables::ROOM_DESCRIPTOR)
+			.call(1);
+	}
+
+	super(param_1, descriptor);
+}
+
+HOOK_METHOD(ModManager, LoadConfigs, () -> void) {
+	super();
+	const int callbackid = 1210;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.call(1);
+	}
+}
+
+// PRE_RENDER
+HOOK_METHOD(Manager, Render, () -> void) {
+	const int callbackid = 1135;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.call(1);
+	}
+
+	super();
+}
+
+HOOK_METHOD(Level, place_room, (LevelGenerator_Room* slot, RoomConfig_Room* config, uint32_t seed, uint32_t unk) -> bool) {
+	const int callbackid = 1137;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(callbackid).pushnil();
+		LuaLevelGeneratorRoom* room = caller.pushUd<LuaLevelGeneratorRoom>(lua::metatables::LevelGeneratorRoomMT);
+
+		room->cleanup = false;
+		room->context = nullptr;
+		room->room = slot;
+
+		RoomConfig_Room* other = nullptr;
+		lua::LuaResults result = caller.push(config, lua::Metatables::ROOM_CONFIG_ROOM)
+			.push(seed)
+			.call(1);
+
+		if (lua_isuserdata(L, -1)) {
+			auto opt = lua::TestUserdata<RoomConfig_Room*>(L, -1, lua::Metatables::ROOM_CONFIG_ROOM);
+
+			if (!opt) {
+				KAGE::LogMessage(2, "Invalid userdata returned in MC_PRE_LEVEL_PLACE_ROOM");
+			}
+			else {
+				other = *opt;
+			}
+		}
+
+		if (other) {
+			bool ok = true;
+			if (other->Shape != config->Shape) {
+				KAGE::_LogMessage(2, "MC_PRE_LEVEL_PLACE_ROOM: Shape mismatch. Original = %d, override = %d\n", config->Shape, other->Shape);
+				ok = false;
+			}
+
+			for (int i = 0; i < MAX_DOOR_SLOTS; ++i) {
+				if (slot->_doors & (1 << i) && !(other->Doors & (1 << i))) {
+					KAGE::_LogMessage(2, "MC_PRE_LEVEL_PLACE_ROOM: Required doors mismatch. Slot %d (mask = %d) required\n", i, 1 << i);
+					ok = false;
+				}
+			}
+
+			if (ok) {
+				return super(slot, other, seed, unk);
+			}
+		}
+	}
+	return super(slot, config, seed, unk);
+}
+
+// Prevent infinite loops in MC_EVALUATE_MULTI_SHOT_PARAMS
+// If GetMultiShotParams is called while the callback is running for that player/weaponType already,
+// skip the callback and return a vanilla MultiShotParams.
+// (player index -> weapontype)
+static std::unordered_map<int, std::set<int>> _getMultiShotParamsRecursionProtection;
+
+// MC_EVALUATE_MULTI_SHOT_PARAMS (1289)
+// Formerly MC_POST_PLAYER_GET_MULTI_SHOT_PARAMS (1251, now deprecated)
+HOOK_METHOD(Entity_Player, GetMultiShotParams, (Weapon_MultiShotParams* params, int weaponType) -> Weapon_MultiShotParams*) {
+	std::set<int>* recursionProtection = &_getMultiShotParamsRecursionProtection[this->_playerIndex];
+
+	params = super(params, weaponType);
+
+	if (recursionProtection->find(weaponType) != recursionProtection->end()) {
+		return params;
+	}
+
+	recursionProtection->insert(weaponType);
+
+	const int legacycallbackid = 1251;
+	const int callbackid = 1289;
+	if (CallbackState.test(callbackid - 1000) || CallbackState.test(legacycallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		// Custom RunCallback function that runs the legacy callback first for backwards compatibility.
+		// Otherwise the legacy callback should be considered deprecated.
+		static const int customRunCallbackRef = [L]() {
+			lua_getglobal(L, "_RunGetMultiShotParamsCallbackWithLegacyCompat");
+			return luaL_ref(L, LUA_REGISTRYINDEX);
+		}();
+		lua_rawgeti(L, LUA_REGISTRYINDEX, customRunCallbackRef);
+
+		lua::LuaCaller caller(L);
+		caller.push(this->GetPlayerType());
+		caller.push(this, lua::Metatables::ENTITY_PLAYER);
+		Weapon_MultiShotParams* luaParams = caller.pushUd<Weapon_MultiShotParams>(lua::metatables::MultiShotParamsMT);
+		*luaParams = *params;
+		lua::LuaResults results = caller.push(weaponType).call(1);
+
+		if (!results && lua_isuserdata(L, -1)) {
+			auto* ud = lua::GetRawUserdata<Weapon_MultiShotParams*>(L, -1, lua::metatables::MultiShotParamsMT);
+
+			if (!ud) {
+				KAGE::LogMessage(2, "Invalid userdata returned in MC_EVALUATE_MULTI_SHOT_PARAMS!");
+			} else {
+				*params = *ud;
+			}
+		}
+	}
+
+	recursionProtection->erase(weaponType);
+
+	return params;
+}
+
+//POST_FAMILIAR_FIRE_PROJECTILE (id: 1252)
+HOOK_METHOD(Entity_Familiar, FireProjectile, (const Vector& AimDirection, bool unk) -> Entity_Tear*) {
+	Entity_Tear* tear = super(AimDirection, unk);
+	const int callbackid = 1252;
+
+	if (tear && CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		Entity_Familiar* fam = (Entity_Familiar*)this;
+
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*fam->GetVariant())
+			.push(tear, lua::Metatables::ENTITY_TEAR)
+			.call(1);
+	}
+
+	return tear;
+}
+
+//POST_FIRE_BOMB (id: 1253)
+HOOK_METHOD(Entity_Player, FireBomb, (Vector* pos, Vector* vel, Entity* source) -> Entity_Bomb*) {
+	Entity_Bomb* bomb = super(pos, vel, source);
+	const int callbackid = 1253;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(bomb, lua::Metatables::ENTITY_BOMB)
+			.call(1);
+	}
+
+	return bomb;
+}
+
+//POST_FIRE_BONE_CLUB (id: 1254)
+HOOK_METHOD(Entity_Player, FireBoneClub, (Entity* parent, uint32_t variant, bool unk, Weapon* weapon, float unk2) -> Entity_Knife*) {
+	Entity_Knife* club = super(parent, variant, unk, weapon, unk2);
+	const int callbackid = 1254;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(club, lua::Metatables::ENTITY_KNIFE)
+			.call(1);
+	}
+
+	return club;
+}
+
+//POST_FIRE_BRIMSTONE (id: 1255)
+HOOK_STATIC(Weapon, FireBrimstone, (Entity* entity,  const Vector& position, const Vector& direction, float damageMult, float unk1, uint32_t unk2)-> Entity_Laser*, __cdecl) {
+	Entity_Laser* brimstone = super(entity, position, direction, damageMult, unk1, unk2);
+	const int callbackid = 1255;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(brimstone, lua::Metatables::ENTITY_LASER)
+			.call(1);
+	}
+
+	return brimstone;
+}
+
+//POST_FIRE_BRIMSTONE_BALL (id: 1256)
+HOOK_METHOD(Entity_Player, FireBrimstoneBall, (const Vector& pos, const Vector& vel, const Vector& offset, uint32_t unk1, uint32_t unk2, Entity* unk3) -> Entity_Effect*) {
+	Entity_Effect* ball = super(pos, vel, offset, unk1, unk2, unk3);
+	const int callbackid = 1256;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(ball, lua::Metatables::ENTITY_EFFECT)
+			.call(1);
+	}
+
+	return ball;
+}
+
+//POST_FIRE_KNIFE (id: 1257)
+HOOK_METHOD(Entity_Player, FireKnife, (Entity* parent, uint32_t variant, float rotationOffset, bool cantOverwrite, uint32_t subType) -> Entity_Knife*) {
+	Entity_Knife* knife = super(parent, variant, rotationOffset, cantOverwrite, subType);
+	const int callbackid = 1257;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(knife, lua::Metatables::ENTITY_KNIFE)
+			.call(1);
+	}
+
+	return knife;
+}
+
+//POST_FIRE_SWORD (id: 1258)
+HOOK_METHOD(Weapon, FireSword, (Entity* param_1, uint32_t param_2, float param_3, bool param_4, bool param_5, uint32_t param_6, Entity* param_7) -> Entity_Knife*) {
+	Entity_Knife* sword = super(param_1, param_2, param_3, param_4, param_5, param_6, param_7);
+	const int callbackid = 1258;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(sword, lua::Metatables::ENTITY_KNIFE)
+			.call(1);
+	}
+
+	return sword;
+}
+
+//POST_FIRE_TECH_LASER (id: 1259)
+HOOK_METHOD(Entity_Player, FireTechLaser, (const Vector& pos, uint32_t offsetID, const Vector& dir, bool leftEye, bool oneHit, Entity * source, float damageScale) -> Entity_Laser*) {
+	Entity_Laser* laser = super(pos, offsetID, dir, leftEye, oneHit, source, damageScale);
+	const int callbackid = 1259;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(laser, lua::Metatables::ENTITY_LASER)
+			.call(1);
+	}
+
+	return laser;
+}
+
+//POST_FIRE_TECH_X_LASER (id: 1260)
+HOOK_METHOD(Entity_Player, FireTechXLaser, (const Vector& pos, const Vector& dir, float radius, Entity* source, float damageMultiplier) -> Entity_Laser*) {
+	Entity_Laser* laser = super(pos, dir, radius, source, damageMultiplier);
+	const int callbackid = 1260;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(laser, lua::Metatables::ENTITY_LASER)
+			.call(1);
+	}
+
+	return laser;
+}
+
+//POST_FAMILIAR_FIRE_BRIMSTONE (id: 1261)
+HOOK_METHOD(Entity_Familiar, FireBrimstone, (const Vector& AimDirection, bool unk) -> Entity_Laser*) {
+	Entity_Laser* brimstone = super(AimDirection, unk);
+	const int callbackid = 1261;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		Entity_Familiar* fam = (Entity_Familiar*)this;
+
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*fam->GetVariant())
+			.push(brimstone, lua::Metatables::ENTITY_LASER)
+			.call(1);
+	}
+
+	return brimstone;
+}
+
+//POST_FAMILIAR_FIRE_TECH_LASER (id: 1262)
+HOOK_METHOD(Entity_Familiar, FireTechLaser, (const Vector& AimDirection) -> Entity_Laser*) {
+	Entity_Laser* laser = super(AimDirection);
+	const int callbackid = 1262;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		Entity_Familiar* fam = (Entity_Familiar*)this;
+
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(*fam->GetVariant())
+			.push(laser, lua::Metatables::ENTITY_LASER)
+			.call(1);
+	}
+
+	return laser;
+}
+
+/////////////////////////////////////////////////
+
+struct GridEntityRenderInputs {
+	GridEntity* grid;
+	const Vector& renderOffset;
+
+	lua::Metatables vanilla_metatable = lua::Metatables::GRID_ENTITY;
+	const char* luabridge_metatable = nullptr;
+
+	void SetMetatable(const lua::Metatables metatable) {
+		vanilla_metatable = metatable;
+	}
+	void SetMetatable(const char* metatable) {
+		luabridge_metatable = metatable;
+	}
+};
+
+struct PreGridEntityResult {
+	bool skip_internal_code = false;
+	Vector renderOffset;
+};
+
+lua::LuaResults RunGridRenderCallback(const GridEntityRenderInputs& inputs, const int callbackid, bool pushOffset, lua_State* L) {
+	int discriminator = inputs.grid->GetDesc()->_type;
+	lua::LuaCaller& lua_caller = lua::LuaCaller(L).push(callbackid).push(discriminator);
+	if (inputs.luabridge_metatable != nullptr) {
+		lua_caller.pushLuabridge(inputs.grid, inputs.luabridge_metatable);
+	}
+	else {
+		lua_caller.push(inputs.grid, inputs.vanilla_metatable);
+	}
+	if (pushOffset)
+	{
+		lua_caller.pushUserdataValue(inputs.renderOffset, lua::Metatables::VECTOR);
+	}
+	return lua_caller.call(1);
+}
+
+PreGridEntityResult ProcessPreGridRenderCallback(const GridEntityRenderInputs& inputs, const int callbackid) {
+	PreGridEntityResult result{ false, inputs.renderOffset };
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults lua_result = RunGridRenderCallback(inputs, callbackid, true, L);
+
+		if (!lua_result) {
+			if (lua_isboolean(L, -1)) {
+				// Vanilla boolean returns always skip internal code.
+				result.skip_internal_code = true;
+			}
+			else if (lua_isuserdata(L, -1)) {
+				result.renderOffset = *lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+			}
+		}
+	}
+
+	return result;
+}
+
+void ProcessPostGridRenderCallback(const GridEntityRenderInputs& inputs, const int callbackid) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		RunGridRenderCallback(inputs, callbackid, false, L);
+	}
+}
+
+void HandleGridRenderCallbacks(const GridEntityRenderInputs& inputs, const int precallbackid, const int postcallbackid, std::function<void(Vector&)> super_lambda) {
+	const PreGridEntityResult pre_render_result = ProcessPreGridRenderCallback(inputs, precallbackid);
+
+	if (!pre_render_result.skip_internal_code) {
+		Vector offset = pre_render_result.renderOffset;
+		super_lambda(offset);
+		ProcessPostGridRenderCallback(inputs, postcallbackid);
+	}
+}
+
+#define _GRIDRENDER_SUPER_LAMBDA() [this](Vector& offset) { super(offset); }
+#define HOOK_GRIDRENDER_CALLBACKS(_type, _metatable, _precallback, _postcallback) \
+HOOK_METHOD(_type, Render, (Vector& offset) -> void) { \
+	GridEntityRenderInputs inputs = {this, offset}; \
+	inputs.SetMetatable(_metatable); \
+	HandleGridRenderCallbacks(inputs, _precallback, _postcallback, _GRIDRENDER_SUPER_LAMBDA()); \
+}
+
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Decoration, lua::metatables::GridDecorationMT, 1444, 1445);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Door, lua::Metatables::GRID_ENTITY_DOOR, 1446, 1447);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Fire, lua::metatables::GridFireMT, 1448, 1449);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Pit, lua::Metatables::GRID_ENTITY_PIT, 1454, 1455);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Poop, lua::Metatables::GRID_ENTITY_POOP, 1456, 1457);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Rock, lua::Metatables::GRID_ENTITY_ROCK, 1458, 1459);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_PressurePlate, lua::Metatables::GRID_ENTITY_PRESSURE_PLATE, 1460, 1461);
+HOOK_GRIDRENDER_CALLBACKS(GridEntity_Wall, lua::metatables::GridWallMT, 1462, 1463);
+
+struct GridRenderCallback {
+	GridEntityType type;
+	lua::Metatables vanilla_metatable;
+	const char* luabridge_metatable;
+	int precallback, postcallback;
+};
+
+// Statue vtable will need to be patched, it has no Render function at all
+struct GridRenderCallback callbacks[8] = {
+	{GRID_SPIKES, lua::Metatables::GRID_ENTITY_SPIKES, nullptr, 1432, 1433},
+	{GRID_SPIKES_ONOFF, lua::Metatables::GRID_ENTITY_SPIKES, nullptr, 1432, 1433},
+	{GRID_SPIDERWEB, lua::Metatables::GRID_ENTITY, lua::metatables::GridWebMT, 1434, 1435},
+	{GRID_TNT, lua::Metatables::GRID_ENTITY, lua::metatables::GridTNT_MT, 1436, 1437},
+	{GRID_TRAPDOOR, lua::Metatables::GRID_ENTITY, lua::metatables::GridTrapDoorMT, 1438, 1439},
+	{GRID_STAIRS, lua::Metatables::GRID_ENTITY, lua::metatables::GridStairsMT, 1440, 1441},
+	{GRID_LOCK, lua::Metatables::GRID_ENTITY, lua::metatables::GridLockMT, 1450, 1451},
+	{GRID_TELEPORTER, lua::Metatables::GRID_ENTITY, lua::metatables::GridTeleporterMT, 1452, 1453},
+};
+
+HOOK_METHOD(GridEntity_Lock, Render, (Vector& offset) -> void) {
+	GridEntityType gridType = (GridEntityType)this->GetDesc()->_type;
+	for (int i = 6; i < 8; i++) {
+		if (gridType == callbacks[i].type)
+		{
+			GridEntityRenderInputs inputs = { this, offset };
+			if (callbacks[i].luabridge_metatable != nullptr) {
+				inputs.SetMetatable(callbacks[i].luabridge_metatable);
+			}
+			else
+			{
+				inputs.SetMetatable(callbacks[i].vanilla_metatable);
+			}
+
+			HandleGridRenderCallbacks(inputs, callbacks[i].precallback, callbacks[i].postcallback, _GRIDRENDER_SUPER_LAMBDA());
+			return;
+		}
+	}
+
+	super(offset);
+
+}
+
+HOOK_METHOD(GridEntity, Render, (Vector& offset) -> void) {
+	GridEntityType gridType = (GridEntityType)this->GetDesc()->_type;
+	for (int i = 0; i < 6; i++) {
+		if (gridType == callbacks[i].type)
+		{
+			GridEntityRenderInputs inputs = { this, offset };
+			if (callbacks[i].luabridge_metatable != nullptr) {
+				inputs.SetMetatable(callbacks[i].luabridge_metatable);
+			}
+			else
+			{
+				inputs.SetMetatable(callbacks[i].vanilla_metatable);
+			}
+			
+			HandleGridRenderCallbacks(inputs, callbacks[i].precallback, callbacks[i].postcallback, _GRIDRENDER_SUPER_LAMBDA());
+			return;
+		}
+	}
+
+	super(offset);
+
+}
+
+/* ////////////////////////
+// Grid Callbacks START!!
+*/ ////////////////////////
+
+struct GridEntityUpdateInputs {
+	GridEntity* grid;
+
+	lua::Metatables vanilla_metatable = lua::Metatables::GRID_ENTITY;
+	const char* luabridge_metatable = nullptr;
+
+	void SetMetatable(const lua::Metatables metatable) {
+		vanilla_metatable = metatable;
+	}
+	void SetMetatable(const char* metatable) {
+		luabridge_metatable = metatable;
+	}
+};
+
+lua::LuaResults RunGridUpdateCallback(const GridEntityUpdateInputs& inputs, const int callbackid, lua_State* L) {
+	int discriminator = inputs.grid->GetDesc()->_type;
+	lua::LuaCaller& lua_caller = lua::LuaCaller(L).push(callbackid).push(discriminator);
+	if (inputs.luabridge_metatable != nullptr) {
+		lua_caller.pushLuabridge(inputs.grid, inputs.luabridge_metatable);
+	}
+	else {
+		lua_caller.push(inputs.grid, inputs.vanilla_metatable);
+	}
+	return lua_caller.call(1);
+}
+
+void ProcessPostGridUpdateCallback(const GridEntityUpdateInputs& inputs, const int callbackid) {
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		RunGridUpdateCallback(inputs, callbackid, L);
+	}
+}
+
+bool ProcessPreGridUpdateCallback(const GridEntityUpdateInputs& inputs, const int callbackid) {
+	bool skipUpdate = false;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults lua_result = RunGridUpdateCallback(inputs, callbackid, L);
+
+		if (!lua_result) {
+			if (lua_isboolean(L, -1)) {
+				// Vanilla boolean returns always skip internal code.
+				skipUpdate = true;
+			}
+		}
+	}
+
+	return skipUpdate;
+}
+
+void HandleGridUpdateCallbacks(const GridEntityUpdateInputs& inputs, const int precallbackid, const int postcallbackid, std::function<void()> super_lambda) {
+	const bool pre_update_result = ProcessPreGridUpdateCallback(inputs, precallbackid);
+
+	if (!pre_update_result) {
+		super_lambda();
+		ProcessPostGridUpdateCallback(inputs, postcallbackid);
+	}
+}
+
+#define _GRIDUPDATE_SUPER_LAMBDA() [this] () { super(); }
+#define HOOK_GRIDUPDATE_CALLBACKS(_type, _metatable, _precallback, _postcallback) \
+HOOK_METHOD(_type, Update, () -> void) { \
+	GridEntityUpdateInputs inputs = {this}; \
+	inputs.SetMetatable(_metatable); \
+	HandleGridUpdateCallbacks(inputs, _precallback, _postcallback, _GRIDUPDATE_SUPER_LAMBDA()); \
+}
+
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Decoration, lua::metatables::GridDecorationMT, 1400, 1401);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Door, lua::Metatables::GRID_ENTITY_DOOR, 1402, 1403);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Fire, lua::metatables::GridFireMT, 1404, 1405);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Gravity, lua::metatables::GridGravityMT, 1406, 1407);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Lock, lua::metatables::GridLockMT, 1408, 1409);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Pit, lua::Metatables::GRID_ENTITY_PIT, 1410, 1411);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Poop, lua::Metatables::GRID_ENTITY_POOP, 1412, 1413);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_PressurePlate, lua::Metatables::GRID_ENTITY_PRESSURE_PLATE, 1414, 1415);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Rock, lua::Metatables::GRID_ENTITY_ROCK, 1416, 1417);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Spikes, lua::Metatables::GRID_ENTITY_SPIKES, 1418, 1419);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Stairs, lua::metatables::GridStairsMT, 1420, 1421);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Statue, lua::metatables::GridStatueMT, 1422, 1423);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Teleporter, lua::metatables::GridTeleporterMT, 1424, 1425);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_TrapDoor, lua::metatables::GridTrapDoorMT, 1426, 1427);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_Web, lua::metatables::GridWebMT, 1428, 1429);
+HOOK_GRIDUPDATE_CALLBACKS(GridEntity_TNT, lua::metatables::GridTNT_MT, 1430, 1431);
+
+/* ////////////////////////
+// Grid Callbacks END!!
+*/ ////////////////////////
+
+//IS_PERSISTENT_ROOM_ENTITY (id: 1263)
+HOOK_METHOD(Room, IsPersistentRoomEntity, (int type, int variant, int subtype) -> bool) {
+	const int callbackid = 1263;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(type)
+			.push(variant)
+			.call(1);
+
+		if (!result && lua_isboolean(L, -1)) {
+			return lua_toboolean(L, -1);
+		}
+	}
+	return super(type, variant, subtype);
+}
+
+
+HOOK_METHOD(LuaCallbackCaller, CallInputAction, (LuaEngine* engine, Entity* entity, int hook, int action) -> LuaCallbackCallerResult) {
+	const int repentogonCallbackId = 1464;
+	if (!Isaac::IsInGame()) {
+		callbackId = repentogonCallbackId;
+	}
+
+	return super(engine, entity, hook, action);
+}
+
+//MC_POST_SAVESLOT_LOAD (1470)
+bool saveslotselected = false;
+bool waszero = false;
+HOOK_METHOD_PRIORITY(Manager, SetSaveSlot,-9999, (unsigned int slot) -> void) {
+	super(slot);
+	unsigned int saveslot = 1;
+	if (slot > 0) { 
+		saveslot = slot; 
+		if (waszero) { saveslotselected = true; } 
+	}else { waszero = true; }
+
+	const int callbackid1 = 1470;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid1 - 1000)) {
+
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+			.push(saveslot)
+			.push(saveslot)
+			.push(saveslotselected)
+			.push(slot)
+			.call(1);
+
+	}
+
+
+}
+
+//MC_POST_PRE_CHALLENGE_DONE (1471-1472)
+HOOK_METHOD_PRIORITY(PersistentGameData, AddChallenge, -9999, (int challengeid) -> void) {
+	const int callbackid1 = 1471;
+	if (CallbackState.test(callbackid1 - 1000)) {
+
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua::LuaCaller caller(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = caller.push(callbackid1)
+			.push(challengeid)
+			.push(challengeid)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+
+	}
+
+
+	super(challengeid);
+
+	const int callbackid2 = 1472;
+	lua_State* L = g_LuaEngine->_state;
+	if (CallbackState.test(callbackid2 - 1000)) {
+
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid2)
+			.push(challengeid)
+			.push(challengeid)
+			.call(1);
+
+	}
+
+
+}
+
+//ModCallbacks.MC_PRE_FAMILIAR_CAN_CHARM = 1473
+//MC_PRE_FAMILIAR_CAN_CHARM (1473)
+HOOK_METHOD(Entity_Familiar, CanCharm, () -> bool) {
+	const int callbackid = 1473;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(_variant)
+			.push(this, lua::Metatables::ENTITY_FAMILIAR)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return false;
+				}
+			}
+		}
+	}
+	return super();
+}
+
+
+//MC_POST_ACHIEVEMENT UNLOCK (1476)
+HOOK_METHOD_PRIORITY(PersistentGameData, TryUnlock, -9999, (int achievid) -> bool) {
+	bool deed = super(achievid);
+	if (deed) {
+		const int callbackid1 = 1476;
+		lua_State* L = g_LuaEngine->_state;
+		if (CallbackState.test(callbackid1 - 1000)) {
+
+			lua::LuaStackProtector protector(L);
+
+			lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+			lua::LuaResults result = lua::LuaCaller(L).push(callbackid1)
+				.push(achievid)
+				.push(achievid)
+				.call(1);
+
+		}
+	}
+	return deed;
+}
+
+//MC_PRE/POST_MINIMAP_UPDATE (1477/1478)
+HOOK_METHOD(Minimap, Update, () -> void) {
+	const int precallbackid = 1477;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(precallbackid).call(1);
+	}
+
+	super();
+
+	const int postcallbackid = 1478;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(postcallbackid).call(1);
+	}
+}
+
+//MC_PRE/POST_MINIMAP_RENDER (1479/1480)
+HOOK_METHOD(Minimap, Render, () -> void) {
+	const int precallbackid = 1479;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(precallbackid).call(1);
+	}
+
+	super();
+
+	const int postcallbackid = 1480;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(postcallbackid).call(1);
+	}
+}
+
+//MC_PRE/POST_PICKUP_GET_LOOT_LIST (1334 / 1336)
+//MC_PRE/POST_NPC_GET_LOOT_LIST (1337 / 1339)
+static void RunLootListCallbacks(LootList& list, Entity& entity, bool shouldAdvance, RNG& rng, Entity_Player* player) {
+	bool isPickup = entity._type == ENTITY_PICKUP;
+	if (!isPickup && entity.ToNPC() == nullptr) {
+		return;
+	}
+	int precallbackid = isPickup ? 1334 : 1337;
+	int postcallbackid = isPickup ? 1336 : 1339;
+	lua::Metatables entityMT = isPickup ? lua::Metatables::ENTITY_PICKUP : lua::Metatables::ENTITY_NPC;
+	int callbackparam = isPickup ? entity._variant : entity._type;
+
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(precallbackid)
+			.push(callbackparam)
+			.push(&entity, entityMT)
+			.push(shouldAdvance)
+			.push(&rng, lua::Metatables::RNG);
+		if (player) {
+			caller.push(player, lua::Metatables::ENTITY_PLAYER);
+		}
+		lua::LuaResults result = caller.call(1);
+
+		if (!result && lua_isuserdata(L, -1)) {
+			LootList& override = *lua::GetRawUserdata<LootList*>(L, -1, lua::metatables::LootListMT);
+			list = std::move(override);
+		}
+	}
+
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		// prepare LuaLootList
+		LootList* toLua = (LootList*)lua_newuserdata(L, sizeof(LootList));
+		luaL_setmetatable(L, lua::metatables::LootListMT);
+		new (toLua) LootList(std::move(list));
+
+		int lootListAbsIdx = lua_absindex(L, -1);
+
+		// RAII scope used so LuaResults destructor will run after the call,
+		// restoring/popping the Lua stack after the function call, leaving only the LuaLootList.
+		{
+			lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+			lua::LuaCaller caller(L);
+			caller.push(postcallbackid)
+				.push(callbackparam)
+				.push(&entity, entityMT)
+				.pushvalue(lootListAbsIdx)
+				.push(shouldAdvance)
+				.push(&rng, lua::Metatables::RNG);
+			if (player) {
+				caller.push(player, lua::Metatables::ENTITY_PLAYER);
+			}
+			caller.call(0);
+		}
+
+		list = std::move(*toLua);
+		lua_pop(L, 1); // LuaLootList
+	}
+}
+
+HOOK_METHOD(Entity_Pickup, GetLootList, (bool shouldAdvance, Entity_Player* player) -> LootList) {
+	RNG rngCopy = this->_dropRNG;
+	RNG& rng = this->_dropRNG;
+	LootList list = super(shouldAdvance, player);
+
+	RunLootListCallbacks(list, *this, shouldAdvance, rng, player);
+
+	if (!shouldAdvance)
+	{
+		this->_dropRNG = rngCopy;
+	}
+
+	return list;
+}
+HOOK_METHOD(Entity_NPC, fireplace_get_loot, (bool shouldAdvance) -> LootList) {
+	RNG rngCopy = this->_dropRNG;
+	RNG& rng = this->_dropRNG;
+	LootList list = super(shouldAdvance);
+
+	if (this->_type == ENTITY_FIREPLACE) {
+		RunLootListCallbacks(list, *this, shouldAdvance, rng, nullptr);
+	}
+
+	if (!shouldAdvance) {
+		this->_dropRNG = rngCopy;
+	}
+
+	return list;
+}
+HOOK_METHOD(Entity_NPC, shopkeeper_get_loot, (bool shouldAdvance) -> LootList) {
+	RNG rngCopy = this->_dropRNG;
+	RNG& rng = this->_dropRNG;
+	LootList list = super(shouldAdvance);
+
+	if (this->_type == ENTITY_SHOPKEEPER) {
+		RunLootListCallbacks(list, *this, shouldAdvance, rng, nullptr);
+	}
+
+	if (!shouldAdvance) {
+		this->_dropRNG = rngCopy;
+	}
+
+	return list;
+}
+
+LootList CustomCallbacks::GetNpcLootList(Entity_NPC& npc, bool shouldAdvance) {
+	if (npc._type == ENTITY_FIREPLACE) {
+		return npc.fireplace_get_loot(shouldAdvance);
+	} else if (npc._type == ENTITY_SHOPKEEPER) {
+		return npc.shopkeeper_get_loot(shouldAdvance);
+	}
+
+	// Custom execution to enable custom lootable NPCs
+	RNG rngCopy = npc._dropRNG;
+	RNG& rng = npc._dropRNG;
+	LootList list;
+	RunLootListCallbacks(list, npc, shouldAdvance, rng, nullptr);
+	if (!shouldAdvance) {
+		npc._dropRNG = rngCopy;
+	}
+	return list;
+}
+
+/// @brief Patches the conditional moves that select the entity's dropRNG
+/// as the RNG to use when `shouldAdvance` is true.
+/// 
+/// This replaces the CMOV with an unconditional MOV so that dropRNG is always
+/// selected, ensuring access to the correct RNG state for PRE_LOOT / POST_LOOT callbacks.
+///
+/// To compensate, the hooks above are now responsible for restoring the original RNG state.
+static void Patch_EntityPickupGetLootList_SelectRNG()
+{
+	intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityPickup_GetLootList_SelectRNG);
+	ZHL::Log("[REPENTOGON] Patching Entity_Pickup::GetLootList for LootList callbacks at %p\n", addr);
+
+	ASMPatch patch;
+	ByteBuffer buffer;
+	buffer.AddString("\x89\xFE\x90"); // Replace CMOV with MOV + NOP padding
+	patch.AddBytes(buffer);
+
+	sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+static void Patch_EntityNPCGetFireplaceLoot_SelectRNG() {
+	intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityNPC_GetFireplaceLoot_SelectRNG);
+	ZHL::Log("[REPENTOGON] Patching Entity_NPC::fireplace_get_loot for LootList callbacks at %p\n", addr);
+
+	ASMPatch patch;
+	ByteBuffer buffer;
+	buffer.AddString("\x89\xC6\x90"); // Replace CMOV with MOV + NOP padding
+	patch.AddBytes(buffer);
+
+	sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+static void Patch_EntityNPCGetShopkeeperLoot_SelectRNG() {
+	intptr_t addr = (intptr_t)sASMDefinitionHolder->GetDefinition(&AsmDefinitions::EntityNPC_GetShopkeeperLoot_SelectRNG);
+	ZHL::Log("[REPENTOGON] Patching Entity_NPC::shopkeeper_get_loot for LootList callbacks at %p\n", addr);
+
+	ASMPatch patch;
+	ByteBuffer buffer;
+	buffer.AddString("\x89\xF7\x90"); // Replace CMOV with MOV + NOP padding
+	patch.AddBytes(buffer);
+
+	sASMPatcher.FlatPatch((void*)addr, &patch);
+}
+
+//MC_POST_PLAYER_TRIGGER_EFFECT_REMOVED (1268)
+HOOK_METHOD(Entity_Player, TriggerEffectRemoved, (ItemConfig_Item* item, int count) -> void) {
+	super(item, count);
+	const int callbackid = 1268;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(callbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(item, lua::Metatables::ITEM)
+			.push(count)
+			.call(1);
+	}
+}
+
+//MC_POST_ROOM_TRIGGER_EFFECT_REMOVED (1269)
+HOOK_METHOD(Room, TriggerEffectRemoved, (ItemConfig_Item* item, int unused) -> void) {
+	super(item, unused);
+	const int callbackid = 1269;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaCaller(L).push(callbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(item, lua::Metatables::ITEM)
+			.call(1);
+	}
+}
+
+//MC_POST_PLAYER/ROOM_ADD_EFFECT (1273/1274)
+HOOK_METHOD(TemporaryEffects, AddEffect, (TemporaryEffect* effect, bool addCostume, int count) -> void) {
+	super(effect, addCostume, count);
+	if (!this->_disabled && count != 0 && effect->_item) {
+		if (this == &g_Game->_room->_temporaryEffects) {
+			const int callbackid = 1274;
+			if (CallbackState.test(callbackid - 1000)) {
+				lua_State* L = g_LuaEngine->_state;
+				lua::LuaStackProtector protector(L);
+				lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+				lua::LuaCaller(L).push(callbackid)
+					.push(effect->_item, lua::Metatables::ITEM)
+					.push(effect->_item, lua::Metatables::ITEM)
+					.call(1);
+			}
+		} else if (this->_player) {
+			const int callbackid = 1273;
+			if (CallbackState.test(callbackid - 1000)) {
+				lua_State* L = g_LuaEngine->_state;
+				lua::LuaStackProtector protector(L);
+				lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+				lua::LuaCaller(L).push(callbackid)
+					.push(effect->_item, lua::Metatables::ITEM)
+					.push(this->_player, lua::Metatables::ENTITY_PLAYER)
+					.push(effect->_item, lua::Metatables::ITEM)
+					.push(addCostume)
+					.push(count)
+					.call(1);
+			}
+		}
+	}
+}
+
+// MC_POST_ADD_INNATE_COLLECTIBLE/TRINKET (1054/1055)
+void CustomCallbacks::TriggerInnateItemAddedCallback(Entity_Player& player, int id, bool isTrinket, const std::string& key, int amount, int duration) {
+    int callbackid = isTrinket ? 1055 : 1054;
+    if (CallbackState.test(callbackid - 1000)) {
+        lua_State* L = g_LuaEngine->_state;
+        lua::LuaStackProtector protector(L);
+
+        lua_rawgeti(L, LUA_REGISTRYINDEX, LuaKeys::runCallbackWithTwoParams);
+
+        lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+            .push(id)
+            .push(key.c_str())
+            .push(&player, lua::Metatables::ENTITY_PLAYER)
+            .push(id)
+            .push(key.c_str())
+            .push(amount)
+            .push(duration)
+            .call(1);
+    }
+}
+
+// MC_POST_REMOVE_INNATE_COLLECTIBLE/TRINKET (1056/1057)
+void CustomCallbacks::TriggerInnateItemRemovedCallback(Entity_Player& player, int id, bool isTrinket, const std::string& key, int amount, bool expiredDuration) {
+    int callbackid = isTrinket ? 1057 : 1056;
+    if (CallbackState.test(callbackid - 1000)) {
+        lua_State* L = g_LuaEngine->_state;
+        lua::LuaStackProtector protector(L);
+
+        lua_rawgeti(L, LUA_REGISTRYINDEX, LuaKeys::runCallbackWithTwoParams);
+
+        lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+            .push(id)
+            .push(key.c_str())
+            .push(&player, lua::Metatables::ENTITY_PLAYER)
+            .push(id)
+            .push(key.c_str())
+            .push(amount)
+            .push(expiredDuration)
+            .call(1);
+    }
+}
+
+//MC_PRE/POST_PLAYER_REVIVE (1482)
+HOOK_METHOD(Entity_Player, Revive, () -> void) {
+	const int precallbackid = 1481;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		Entity_Player* ent = (Entity_Player*)this;
+
+		lua::LuaResults lua_result = lua::LuaCaller(L).push(precallbackid)
+			.push(this->GetPlayerType())
+			.push(ent, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!lua_result && lua_isboolean(L, -1) && lua_toboolean(L, -1) == false) {
+			return;
+		}
+	}
+
+	super();
+
+	if (this->GetPlayerType() == PLAYER_THEFORGOTTEN) {
+		// This function can leave the forgotten with half a soul heart, despite
+		// it normally being impossible for the forgotten to have soul hearts.
+		// (For vanilla revives the health is changed after Revive is called.)
+		// This results in the half soul heart being impossible to remove, as
+		// AddSoulHearts always redirects to The Soul.
+		// Fix the forgotten's health here to revive them with an empty bone heart.
+		this->_soulHearts = 0;
+		if (this->_boneHearts < 1) {
+			this->_boneHearts = 1;
+			this->_boneHeartsMask = 1;
+		}
+	}
+
+    // Prevent reviving with half a coin heart (keeper)
+    if (this->GetHealthType() == 3 && this->_redHearts == 1) {
+        this->_redHearts = 2;
+    }
+
+	const int postcallbackid = 1482;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		Entity_Player* ent = (Entity_Player*)this;
+
+		lua::LuaCaller(L).push(postcallbackid)
+			.push(this->GetPlayerType())
+			.push(ent, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+} 
+
+// MC_PRE_FORTUNE_DISPLAY (1483)
+HOOK_METHOD(HUD, ShowFortuneText, (int** param_1) -> void) {
+	const int callbackId = 1483;
+	if (CallbackState.test(callbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(param_1);
+}
+
+//MC_POST_BOSS_INTRO_SHOW (1270)
+HOOK_METHOD(RoomTransition, StartBossIntro, (unsigned int bossID1, unsigned int bossID2) -> void) {
+	super(bossID1, bossID2);
+
+	const int callbackid = 1270;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(bossID1)
+			.push(bossID2)
+			.call(1);
+	}
+}
+
+//MC_POST_ROOM_TRANSITION_UPDATE (1271)
+HOOK_METHOD(RoomTransition, Update, () -> void) {
+	super();
+
+	const int callbackid = 1271;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(_mode)
+			.call(1);
+	}
+}
+
+//MC_POST_ROOM_TRANSITION_RENDER (1272)
+HOOK_METHOD(RoomTransition, Render, () -> void) {
+	super();
+
+	const int callbackid = 1272;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(callbackid)
+			.push(_mode)
+			.call(1);
+	}
+}
+
+static bool is_valid_special_boss_id(int bossId)
+{
+	size_t realValue = -bossId;
+	bool validDoubleTrouble = (RoomConfig_Room::BOSS_DOUBLE_TROUBLE_START <= realValue && realValue < RoomConfig_Room::BOSS_DOUBLE_TROUBLE_END) // valid range
+		&& (realValue % 50) == 0; // valid start
+
+	return validDoubleTrouble;
+}
+
+//MC_PRE_BOSS_SELECT (1280)
+static std::optional<int> PRE_BOSS_SELECT(int bossId, BossPool_Pool& pool, int levelType, int levelVariant)
+{
+	const int callbackid = 1280;
+
+	if (!CallbackState.test(callbackid - 1000))
+	{
+		return std::nullopt;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+		.push(bossId)
+		.push(bossId)
+		.push(&pool, lua::metatables::BossPoolMT)
+		.push(levelType)
+		.push(levelVariant)
+		.call(1);
+
+	if (result || !lua_isinteger(L, -1))
+	{
+		return std::nullopt;
+	}
+
+	int newBossId = (int)lua_tointeger(L, -1);
+	if (newBossId < 0 && !is_valid_special_boss_id(newBossId)) // special value
+	{
+		return std::nullopt;
+	}
+
+	return newBossId;
+}
+
+BossPool_Entry* s_lastPickedBoss = nullptr;
+
+HOOK_METHOD(BossPool, PickBoss, (BossPool_Pool* pool) -> BossPool_Entry*)
+{
+	BossPool_Entry* boss = super(pool);
+	// ASSUMPTION: PickBoss only ever returns a non null boss when it confirms it is available and after staging it for removal in the _levelBlacklist
+	// This is true for 1.9.7.12
+	s_lastPickedBoss = boss;
+	return boss;
+}
+
+static const size_t BOSS_DEATH_IDX = 3;
+static const size_t s_specialBosses[] = {
+	eBossId::BOSS_FAMINE, eBossId::BOSS_PESTILENCE, eBossId::BOSS_WAR,
+	eBossId::BOSS_DEATH, eBossId::BOSS_HEADLESS_HORSEMAN, eBossId::BOSS_CONQUEST
+};
+
+//MC_PRE_BOSS_SELECT (1280)
+HOOK_METHOD(BossPool, GetBossId, (int leveltype, int levelvariant, RNG* unusedRNG) -> int) {
+	constexpr size_t NUM_SPECIAL_BOSSES = std::extent_v<decltype(s_specialBosses)>;
+
+	s_lastPickedBoss = nullptr;
+	std::bitset<NUM_SPECIAL_BOSSES> specialBossStagedState;
+	auto& stagedRemoves = this->_levelBlacklist;
+
+	for (size_t i = 0; i < NUM_SPECIAL_BOSSES; i++)
+	{
+		size_t id = s_specialBosses[i];
+		specialBossStagedState[i] = stagedRemoves[id];
+	}
+
+	int bossId = super(leveltype, levelvariant, unusedRNG);
+
+	const auto stageId = RoomConfig::GetStageID(leveltype, levelvariant, -1);
+	BossPool_Pool& pool = this->_pool[stageId];
+	std::optional<int> callbackResult = PRE_BOSS_SELECT(bossId, this->_pool[stageId], leveltype, levelvariant);
+
+	if (!callbackResult)
+	{
+		return bossId;
+	}
+
+	int callbackBossId = callbackResult.value();
+	if (callbackBossId >= (int)stagedRemoves.size()) // this should always be equal to the number of boss ids
+	{
+		return bossId;
+	}
+
+	// Double trouble support is currently limited.
+	// From this function, you can only indicate that one should occur
+	// not fully control which boss should appear in it.
+	// It also needs to be the start of a valid variant range.
+	// For now, it is probably best to ignore negative indices.
+	if (callbackBossId < 0)
+	{
+		return bossId;
+	}
+
+	// Undo GetBossId side effects
+	if (s_lastPickedBoss)
+	{
+		stagedRemoves[s_lastPickedBoss->_id] = false;
+	}
+	else
+	{
+		for (size_t i = 0; i < NUM_SPECIAL_BOSSES; i++)
+		{
+			size_t id = s_specialBosses[i];
+			if (id != bossId)
+			{
+				continue;
+			}
+
+			stagedRemoves[id] = specialBossStagedState[i];
+			if (id == eBossId::BOSS_CONQUEST)
+			{
+				stagedRemoves[eBossId::BOSS_DEATH] = specialBossStagedState[BOSS_DEATH_IDX];
+			}
+			break;
+		}
+	}
+
+	bossId = callbackBossId;
+	stagedRemoves[bossId] = true;
+	return bossId;
+}
+
+//PRE_GET_RANDOM_ROOM_INDEX (1290)
+HOOK_METHOD(Level, GetRandomRoomIndex, (bool IAmErrorRoom, unsigned int Seed) -> int) {
+	int ret = super(IAmErrorRoom, Seed);
+
+	const int callbackid = 1290;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(ret)
+			.push(IAmErrorRoom)
+			.push(Seed)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				return (int)lua_tointeger(L, -1);
+			}
+		}
+	}
+	return ret;
+}
+
+//PRE_FORCE_ADD_PILL_EFFECT (1128), temporarily disabled
+HOOK_METHOD(ItemPool, ForceAddPillEffect, (int32_t ID)->int) {
+	int ret = -1;
+	int callbackid = 1128;
+	// if (CallbackState.test(callbackid - 1000)) {
+	// 	lua_State* L = g_LuaEngine->_state;
+	// 	lua::LuaStackProtector protector(L);
+
+	// 	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	// 	lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+	// 		.pushnil()
+	// 		.push(ID)
+	// 		.call(1);
+
+	// 	if (!result) {
+	// 		if (lua_isinteger(L, -1)) {
+	// 			ret = (int)lua_tointeger(L, -1);
+	// 		};
+	// 	}
+	// };
+
+	if (ret == -1) {
+		ret = super(ID);
+	};
+
+	//POST_FORCE_PILL_EFFECT (1129)
+	callbackid = 1129;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(ID)
+			.push(ret)
+			.call(1);
+	};
+
+	return ret;
+};
+
+static int get_glowing_hourglass_slot(GameState* gameState) { //g_Game->_currentGlowingHourglassSlot should always contain the slot that is currently being saved/restored, but I'm doing this just to be safe.
+	if (gameState == &g_Game->_glowingHourglassStates[0]._gameState) {
+		return 0;
+	}
+
+	if (gameState == &g_Game->_glowingHourglassStates[1]._gameState) {
+		return 1;
+	}
+
+	return -1;
+}
+
+//PRE/POST_GLOWING_HOURGLASS_SAVE (1300 - 1302)
+HOOK_METHOD_PRIORITY(Game, SaveState, -100, (GameState* gameState) -> void) {
+	int currentSlot = get_glowing_hourglass_slot(gameState);
+
+	const int preCallbackId = 1302;
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(preCallbackId)
+			.pushnil()
+			.push(currentSlot)
+			.call(1);
+	}
+
+	super(gameState);
+
+	if (currentSlot == -1) {
+		return;
+	}
+
+	const int postCallbackId = 1300;
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.pushnil()
+			.push(currentSlot)
+			.call(1);
+	}
+	return;
+}
+
+//PRE/POST_GLOWING_HOURGLASS_LOAD (1301 - 1303)
+HOOK_METHOD_PRIORITY(Game, RestoreState, -100, (GameState* gameState, bool startGame) -> void) {
+	int currentSlot = get_glowing_hourglass_slot(gameState);
+
+	if (currentSlot != -1)
+	{
+		const int preCallbackId = 1303;
+		if (CallbackState.test(preCallbackId - 1000)) {
+			lua_State* L = g_LuaEngine->_state;
+			lua::LuaStackProtector protector(L);
+
+			lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+			lua::LuaResults result = lua::LuaCaller(L).push(preCallbackId)
+				.pushnil()
+				.push(currentSlot)
+				.call(1);
+		}
+	}
+
+	super(gameState, startGame);
+
+	if (currentSlot == -1) {
+		return;
+	}
+
+	const int postCallbackId = 1301;
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.pushnil()
+			.push(currentSlot)
+			.call(1);
+	}
+	return;
+}
+
+// POST_ROOM_SAVE_STATE (1304)
+HOOK_METHOD(Room, SaveState, () -> void) {
+	super();
+	constexpr int callbackId = 1304;
+	if (!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.pushnil()
+		.push(this, lua::Metatables::ROOM)
+		.push(this->_descriptor, lua::Metatables::ROOM_DESCRIPTOR)
+		.call(1);
+}
+
+static inline void run_pre_room_restore(Room* room)
+{
+	constexpr int callbackId = 1305;
+	if (!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	// The original method sets this before everything else so we emulate the same behavior to avoid inconsistencies
+	Entity_Pickup::BeginIgnoreModifiers();
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.pushnil()
+		.push(room, lua::Metatables::ROOM)
+		.push(room->_descriptor, lua::Metatables::ROOM_DESCRIPTOR)
+		.call(1);
+
+	Entity_Pickup::EndIgnoreModifiers();
+}
+
+// PRE_ROOM_RESTORE_STATE (1305)
+HOOK_METHOD(Room, RestoreState, () -> void) {
+	run_pre_room_restore(this);
+	super();
+}
+
+// POST_SWAP_ROOMS (1306)
+HOOK_METHOD(Level, swap_rooms, (int leftIdx, int rightIdx) -> void)
+{
+	super(leftIdx, rightIdx);
+
+	constexpr int callbackId = 1306;
+	if (!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+	auto* left = this->GetRoomByIdx(leftIdx, DIMENSION_CURRENT);
+	auto* right = this->GetRoomByIdx(rightIdx, DIMENSION_CURRENT);
+
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.pushnil()
+		.push(left, lua::Metatables::ROOM_DESCRIPTOR)
+		.push(right, lua::Metatables::ROOM_DESCRIPTOR)
+		.call(1);
+}
+
+static inline void run_post_backwards_room_save(lua_State* L, int stage, RoomDescriptor& roomDesc, const char* key, int index)
+{
+	constexpr int callbackId = 1307;
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.pushnil()
+		.push(stage)
+		.push(&roomDesc, lua::Metatables::ROOM_DESCRIPTOR)
+		.pushfstring("%s_%d", key, index)
+		.call(1);
+}
+
+// POST_BACKWARDS_ROOM_SAVE (1307)
+HOOK_METHOD(Game, SaveBackwardsStage, (int stage) -> void)
+{
+	super(stage);
+	constexpr int callbackId = 1307;
+	if (!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	BackwardsStageDesc& backwardsStage = g_Game->_backwardsStages[stage - 1];
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	for (size_t i = 0; i < backwardsStage._bossRoomsCount; i++)
+	{
+		assert(i < 2); // Game doesn't save more than two rooms currently, either game logic changed or the structure is misaligned
+		RoomDescriptor& savedRoomDesc = backwardsStage._bossRooms[i];
+		RoomDescriptor& roomDesc = g_Game->_gridRooms[savedRoomDesc.ListIndex];
+		assert(roomDesc.ListIndex == savedRoomDesc.ListIndex);
+		run_post_backwards_room_save(L, stage, roomDesc, "boss", i);
+	}
+
+	for (size_t i = 0; i < backwardsStage._treasureRoomsCount; i++)
+	{
+		assert(i < 2); // Game doesn't save more than two rooms currently, either game logic changed or the structure is misaligned
+		RoomDescriptor& savedRoomDesc = backwardsStage._treasureRooms[i];
+		RoomDescriptor& roomDesc = g_Game->_gridRooms[savedRoomDesc.ListIndex];
+		assert(roomDesc.ListIndex == savedRoomDesc.ListIndex);
+		run_post_backwards_room_save(L, stage, roomDesc, "treasure", i);
+	}
+}
+
+//PRE/POST_ENTITY_SET_COLOR (1486/1487)
+HOOK_METHOD(Entity, SetColor, (ColorMod* color, int duration, int priority, bool fadeOut, bool share) -> void) {
+	const int preCallbackId = 1486;
+	ColorMod colorCopy;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(preCallbackId)
+			.push(this->_type)
+			.push(this, lua::Metatables::ENTITY)
+			.push(color, lua::Metatables::COLOR)
+			.push(duration)
+			.push(priority)
+			.push(fadeOut)
+			.push(share)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+				return;
+			}
+			else if (lua_isuserdata(L, -1)) {
+				// We need to copy the returned color in case the Lua stack is cleaned up in order to avoid unexpected behavior.
+				ColorMod* returnedColor = lua::GetLuabridgeUserdata<ColorMod*>(L, -1, lua::Metatables::COLOR, "Color");
+				colorCopy = *returnedColor;
+				color = &colorCopy;
+			}
+		}
+	}
+
+	super(color, duration, priority, fadeOut, share);
+
+	const int postCallbackId = 1487;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.push(this->_type)
+			.push(this, lua::Metatables::ENTITY)
+			.push(color, lua::Metatables::COLOR)
+			.push(duration)
+			.push(priority)
+			.push(fadeOut)
+			.push(share)
+			.call(1);
+	}
+}
+
+inline bool IsCoopBaby(Entity_Player* player) {
+	return player->_variant == 1 || player->_isCoopGhost;
+}
+
+//PRE/POST_PLAYER_ADD_COSTUME (1281/1283)
+HOOK_METHOD(Entity_Player, AddCostume, (ItemConfig_Item* item, bool itemStateOnly) -> void) {
+	if (IsCoopBaby(this)) {
+		return;
+	}
+
+	const int preCallbackid = 1281;
+	if (CallbackState.test(preCallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(preCallbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(item, lua::Metatables::ITEM)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(itemStateOnly)
+			.call(1);
+
+		if (!result) {
+			if (lua_isuserdata(L, -1)) {
+				auto* retItem = lua::GetLuabridgeUserdata<ItemConfig_Item*>(L, -1, lua::Metatables::ITEM, "Item");
+				if (retItem) {
+					item = retItem;
+				}
+			}
+			else if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(item, itemStateOnly);
+
+	const int postCallbackid = 1283;
+	if (CallbackState.test(postCallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(item, lua::Metatables::ITEM)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(itemStateOnly)
+			.call(1);
+	}
+}
+
+//PRE/POST_PLAYER_REMOVE_COSTUME (1282/1284)
+HOOK_METHOD(Entity_Player, RemoveCostume, (ItemConfig_Item* item) -> void) {
+	if (!item || IsCoopBaby(this)) {
+		return;
+	}
+
+	const int preCallbackid = 1282;
+	if (CallbackState.test(preCallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(preCallbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(item, lua::Metatables::ITEM)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(item);
+
+	const int postCallbackid = 1284;
+	if (CallbackState.test(postCallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackid)
+			.push(item, lua::Metatables::ITEM)
+			.push(item, lua::Metatables::ITEM)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isboolean(L, -1)) {
+				if (lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+}
+
+//MC_POST_PICKUP_SELECTION_REWORK(37)
+int requestedPickupVariant = 0;
+int requestedPickupSubType = 0;
+uint32_t pickupInitSeed = 0;
+
+HOOK_METHOD(Entity_Pickup, Init, (uint32_t type, int variant, int subType, uint32_t seed) -> void)
+{
+	requestedPickupVariant = variant;
+	requestedPickupSubType = subType;
+	pickupInitSeed = seed;
+
+	super(type, variant, subType, seed);
+}
+
+HOOK_STATIC(LuaEngine, PostPickupSelection, (Entity_Pickup* pickup, int* variant, int* subType) -> void, __stdcall)
+{
+	const int callbackId = 37;
+	lua_State* L = g_LuaEngine->_state;
+
+	if (VanillaCallbackState.test(callbackId)) {
+		RNG rng = RNG();
+		rng.SetSeed(pickupInitSeed, 3); // not using 35 as it's what's used by the selection RNG
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+		lua::LuaResults failure = lua::LuaCaller(L).push(callbackId)
+			.pushnil()
+			.push(pickup, lua::Metatables::ENTITY_PICKUP)
+			.push(*variant)
+			.push(*subType)
+			.push(requestedPickupVariant)
+			.push(requestedPickupSubType)
+			.push(&rng, lua::Metatables::RNG)
+			.call(1);
+
+		if (failure || !lua_istable(L, -1))
+		{
+			return;
+		}
+
+		lua_rawgeti(L, -1, 1);
+		*variant = (int)luaL_optinteger(L, -1, *variant);
+		lua_pop(L, 1);
+
+		lua_rawgeti(L, -1, 2);
+		*subType = (int)luaL_optinteger(L, -1, *subType);
+		lua_pop(L, 1);
+	}
+}
+
+// GET_STATUS_EFFECT_TARGET (1485)
+HOOK_METHOD(Entity, GetStatusEffectTarget, () -> Entity*) {
+	const int callbackid = 1485;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackid)
+			.push(this->_type)
+			.push(this, lua::Metatables::ENTITY)
+			.call(1);
+
+		if (!results) {
+			if (lua_isuserdata(L, -1)) {
+				return lua::GetLuabridgeUserdata<Entity*>(L, -1, lua::Metatables::ENTITY, "Entity");
+			}
+		}
+	}
+	return super();
+}
+
+// PRE/POST_STATUS_EFFECT_APPLY (1465/1466)
+struct StatusEffectApplyInputs {
+	Entity* entity;
+	EntityRef source;
+	int duration;
+	bool ignoreBossStatusCooldown;
+};
+
+void HandleStatusApplyCallback(int statusId, StatusEffectApplyInputs& inputs, std::function<void(const EntityRef&, int, bool)> super) {
+	const int preCallbackId = 1465;
+	
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(preCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(inputs.entity, lua::Metatables::ENTITY)
+			.push(&(inputs.source), lua::Metatables::ENTITY_REF)
+			.push(inputs.duration)
+			.push(inputs.ignoreBossStatusCooldown)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				const uint32_t len = (uint32_t)lua_rawlen(L, -1);
+				if (len > 0)
+					inputs.duration = lua::callbacks::ToInteger(L, 1);
+				if (len > 1)
+					inputs.ignoreBossStatusCooldown = (bool)lua::callbacks::ToBoolean(L, 2);
+			}
+			else if (lua_isinteger(L, -1)) {
+				inputs.duration = (int)lua_tointeger(L, -1);
+			}
+			else if (lua_isboolean(L, -1))
+			{
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(inputs.source, inputs.duration, inputs.ignoreBossStatusCooldown);
+
+	const int postCallbackId = 1466;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(inputs.entity, lua::Metatables::ENTITY)
+			.push(&(inputs.source), lua::Metatables::ENTITY_REF)
+			.push(inputs.duration)
+			.push(inputs.ignoreBossStatusCooldown)
+			.call(1);
+	}
+}
+
+#define _APPLY_STATUS_EFFECT_LAMBDA() [this](const EntityRef& ref, int duration, bool ignoreBossStatusCooldown) { return super(ref, duration, ignoreBossStatusCooldown); }
+#define HOOK_STATUS_APPLY_CALLBACKS(_method, statusId) \
+HOOK_METHOD(Entity, _method, (const EntityRef& ref, int duration, bool ignoreBossStatusCooldown) -> void) { \
+	StatusEffectApplyInputs inputs = {this, ref, duration, ignoreBossStatusCooldown}; \
+	HandleStatusApplyCallback(statusId, inputs, _APPLY_STATUS_EFFECT_LAMBDA()); \
+}
+
+#define _APPLY_TWOBOOL_STATUS_EFFECT_LAMBDA() [this, otherbool](const EntityRef& ref, int duration, bool ignoreBossStatusCooldown) { return super(ref, duration, ignoreBossStatusCooldown, otherbool); }
+#define HOOK_TWOBOOL_STATUS_APPLY_CALLBACKS(_method, statusId) \
+HOOK_METHOD(Entity, _method, (const EntityRef& ref, int duration, bool ignoreBossStatusCooldown, bool otherbool) -> void) { \
+	StatusEffectApplyInputs inputs = {this, ref, duration, ignoreBossStatusCooldown}; \
+	HandleStatusApplyCallback(statusId, inputs, _APPLY_TWOBOOL_STATUS_EFFECT_LAMBDA()); \
+}
+
+#define _APPLY_NOBOOL_STATUS_EFFECT_LAMBDA() [this](const EntityRef& ref, int duration, bool ignoreBossStatusCooldown) { return super(ref, duration); }
+#define HOOK_NOBOOL_STATUS_APPLY_CALLBACKS(_method, statusId) \
+HOOK_METHOD(Entity, _method, (const EntityRef& ref, int duration) -> void) { \
+	StatusEffectApplyInputs inputs = {this, ref, duration, false}; \
+	HandleStatusApplyCallback(statusId, inputs, _APPLY_NOBOOL_STATUS_EFFECT_LAMBDA()); \
+}
+
+struct DamageStatusEffectApplyInputs {
+	Entity* entity;
+	EntityRef source;
+	int duration;
+	float damage;
+	bool ignoreBossStatusCooldown;
+};
+
+void HandleDamageStatusApplyCallback(int statusId, DamageStatusEffectApplyInputs& inputs, std::function<void(const EntityRef&, int, float, bool)> super) {
+	const int preCallbackId = 1465;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(preCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(inputs.entity, lua::Metatables::ENTITY)
+			.push(&(inputs.source), lua::Metatables::ENTITY_REF)
+			.push(inputs.duration)
+			.push(inputs.damage)
+			.push(inputs.ignoreBossStatusCooldown)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				const uint32_t len = (uint32_t)lua_rawlen(L, -1);
+				if (len > 0)
+					inputs.duration = lua::callbacks::ToInteger(L, 1);
+				if (len > 1)
+					inputs.damage = (float)lua::callbacks::ToNumber(L, 2);
+				if (len > 2)
+					inputs.ignoreBossStatusCooldown = (bool)lua::callbacks::ToBoolean(L, 3);
+			}
+			else if (lua_isinteger(L, -1)) {
+				inputs.duration = (int)lua_tointeger(L, -1);
+			}
+			else if (lua_isboolean(L, -1))
+			{
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(inputs.source, inputs.duration, inputs.damage, inputs.ignoreBossStatusCooldown);
+
+	const int postCallbackId = 1466;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(inputs.entity, lua::Metatables::ENTITY)
+			.push(&(inputs.source), lua::Metatables::ENTITY_REF)
+			.push(inputs.duration)
+			.push(inputs.damage)
+			.push(inputs.ignoreBossStatusCooldown)
+			.call(1);
+	}
+}
+
+#define _APPLY_DAMAGE_STATUS_EFFECT_LAMBDA() [this](const EntityRef& ref, int duration, float damage, bool ignoreBossStatusCooldown) { return super(ref, duration, damage, ignoreBossStatusCooldown); }
+#define HOOK_DAMAGE_STATUS_APPLY_CALLBACKS(_method, statusId) \
+HOOK_METHOD(Entity, _method, (const EntityRef& ref, int duration, float damage, bool ignoreBossStatusCooldown) -> void) { \
+	DamageStatusEffectApplyInputs inputs = {this, ref, duration, damage, ignoreBossStatusCooldown}; \
+	HandleDamageStatusApplyCallback(statusId, inputs, _APPLY_DAMAGE_STATUS_EFFECT_LAMBDA()); \
+}
+
+// As of rep+, these all take a "ignoreBossStatusCooldown" boolean.
+HOOK_STATUS_APPLY_CALLBACKS(AddConfusion, 5);
+HOOK_STATUS_APPLY_CALLBACKS(AddFear, 6);
+HOOK_STATUS_APPLY_CALLBACKS(AddFreeze, 7);
+HOOK_STATUS_APPLY_CALLBACKS(AddMidasFreeze, 11);
+
+// AddCharmed and AddShrink got new boolean params in 1.9.7.11
+HOOK_TWOBOOL_STATUS_APPLY_CALLBACKS(AddCharmed, 4);
+HOOK_TWOBOOL_STATUS_APPLY_CALLBACKS(AddShrink, 13);
+
+// These ones take a boolean parameter but it is unused.
+HOOK_STATUS_APPLY_CALLBACKS(AddBaited, 0);
+HOOK_STATUS_APPLY_CALLBACKS(AddBleeding, 1);
+HOOK_STATUS_APPLY_CALLBACKS(AddMagnetized, 10);
+
+HOOK_NOBOOL_STATUS_APPLY_CALLBACKS(AddBrimstoneMark, 2);
+HOOK_NOBOOL_STATUS_APPLY_CALLBACKS(AddIce, 8);
+HOOK_NOBOOL_STATUS_APPLY_CALLBACKS(AddWeakness, 15);
+
+HOOK_DAMAGE_STATUS_APPLY_CALLBACKS(AddBurn, 3);
+HOOK_DAMAGE_STATUS_APPLY_CALLBACKS(AddPoison, 12);
+
+HOOK_METHOD(Entity, AddKnockback, (const EntityRef& ref, const Vector& pushDirection, int duration, bool takeImpactDamage) -> void) {
+	Vector pushVector(pushDirection);
+
+	const int preCallbackId = 1465;
+	const int statusId = 9;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(preCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(this, lua::Metatables::ENTITY)
+			.push((EntityRef*)(&ref), lua::Metatables::ENTITY_REF)
+			.push(duration)
+			.push(&pushVector, lua::Metatables::VECTOR)
+			.push(takeImpactDamage)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				const uint32_t len = (uint32_t)lua_rawlen(L, -1);
+				if (len > 0)
+					duration = lua::callbacks::ToInteger(L, 1);
+				if (len > 1) {
+					lua_pushinteger(L, 2);
+					lua_gettable(L, -2);
+					pushVector = *lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+					lua_pop(L, 1);
+				}
+				if (len > 2)
+					takeImpactDamage = lua::callbacks::ToBoolean(L, 3);
+			}
+			else if (lua_isinteger(L, -1)) {
+				duration = (int)lua_tointeger(L, -1);
+			}
+			else if (lua_isboolean(L, -1))
+			{
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(ref, pushVector, duration, takeImpactDamage);
+
+	const int postCallbackId = 1466;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(postCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(this, lua::Metatables::ENTITY)
+			.push((EntityRef*)(&ref), lua::Metatables::ENTITY_REF)
+			.push(duration)
+			.push(&pushVector, lua::Metatables::VECTOR)
+			.push(takeImpactDamage)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Entity, AddSlowing, (const EntityRef& ref, int duration, float amount, ColorMod color, bool ignoreBossStatusCooldown) -> void) {
+	const int preCallbackId = 1465;
+	const int statusId = 14;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(preCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(this, lua::Metatables::ENTITY)
+			.push((EntityRef*)(&ref), lua::Metatables::ENTITY_REF)
+			.push(duration)
+			.push(amount)
+			.push(&color, lua::Metatables::COLOR)
+			.push(ignoreBossStatusCooldown)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				const uint32_t len = (uint32_t)lua_rawlen(L, -1);
+				if (len > 0)
+					duration = lua::callbacks::ToInteger(L, 1);
+				if (len > 1)
+					amount = (float)lua::callbacks::ToNumber(L, 2);
+				if (len > 2) {
+					lua_pushinteger(L, 3);
+					lua_gettable(L, -2);
+					color = *lua::GetLuabridgeUserdata<ColorMod*>(L, -1, lua::Metatables::COLOR, "Color");
+					lua_pop(L, 1);
+				}
+				if (len > 3)
+					ignoreBossStatusCooldown = (bool)lua::callbacks::ToBoolean(L, 4);
+			}
+			else if (lua_isinteger(L, -1)) {
+				duration = (int)lua_tointeger(L, -1);
+			}
+			else if (lua_isboolean(L, -1))
+			{
+				if (!lua_toboolean(L, -1)) {
+					return;
+				}
+			}
+		}
+	}
+
+	super(ref, duration, amount, color, ignoreBossStatusCooldown);
+
+	const int postCallbackId = 1466;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(postCallbackId)
+			.push(statusId)
+			.push(statusId)
+			.push(this, lua::Metatables::ENTITY)
+			.push((EntityRef*)(&ref), lua::Metatables::ENTITY_REF)
+			.push(duration)
+			.push(amount)
+			.push(&color, lua::Metatables::COLOR)
+			.push(ignoreBossStatusCooldown)
+			.call(1);
+	}
+}
+
+//POST_START_AMBUSH_WAVE (1488)
+void ProcessPostStartAmbushWaveCallback(bool bossAmbush) {
+	const int callbackid = 1488;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(bossAmbush)
+			.call(1);
+	}
+}
+
+HOOK_METHOD(Ambush, SpawnWave, () -> void) {
+	super();
+	ProcessPostStartAmbushWaveCallback(false);
+}
+
+HOOK_METHOD(Ambush, SpawnBossrushWave, () -> void) {
+	super();
+	ProcessPostStartAmbushWaveCallback(true);
+}
+
+//POST_START_GREED_WAVE (1489)
+HOOK_METHOD(Room, SpawnGreedModeWave, (bool unusedBool) -> void) {
+	super(unusedBool);
+
+	const int callbackid = 1489;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.call(1);
+	}
+}
+
+static std::unordered_map<int, std::set<int>> _getTearHitParamsRecursionProtection;
+
+// MC_EVALUATE_TEAR_HIT_PARAMS (1490)
+HOOK_METHOD(Entity_Player, GetTearHitParams, (TearParams* params, int weaponType, float damageScale, int tearDisplacement, Entity* source) -> TearParams*) {
+	std::set<int>* recursionProtection = &_getTearHitParamsRecursionProtection[this->_playerIndex];
+
+	params = super(params, weaponType, damageScale, tearDisplacement, source);
+
+	if (recursionProtection->find(weaponType) != recursionProtection->end()) {
+		return params;
+	}
+
+	recursionProtection->insert(weaponType);
+
+	const int callbackid = 1490;
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackid)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(params, lua::Metatables::TEAR_PARAMS)
+			.push(weaponType)
+			.push(damageScale)
+			.push(tearDisplacement)
+			.push(source, lua::Metatables::ENTITY)
+			.call(1);
+
+		if (!results && lua_isuserdata(L, -1)) {
+			auto* ud = lua::GetLuabridgeUserdata<TearParams*>(L, -1, lua::Metatables::TEAR_PARAMS, "TearParams");
+
+			if (!ud) {
+				KAGE::LogMessage(2, "Invalid userdata returned in MC_EVALUATE_TEAR_HIT_PARAMS!");
+			}
+			else {
+				*params = *ud;
+			}
+		}
+	}
+
+	recursionProtection->erase(weaponType);
+	
+
+	return params;
+}
+
+// MC_POST_ITEM_OVERLAY_RENDER (1139)
+HOOK_METHOD(ItemOverlay, Render, () -> void) {
+	super();
+
+	constexpr int callbackId = 1139;
+	if (_state == eItemOverlayState::INACTIVE ||
+		_state == eItemOverlayState::WAITING ||
+		(!_sprite._loaded && _overlayID != 45 ) ||
+		!CallbackState.test(callbackId - 1000)) {
+		return;
+	}
+
+	lua_State* L = g_LuaEngine->_state;
+	lua::LuaStackProtector protector(L);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+	lua::LuaResults result = lua::LuaCaller(L).push(callbackId)
+		.push(_overlayID)
+		.push(_overlayID)
+		.call(1);
+
+}
+
+// MC_PRE_OPEN_CHEST/MC_POST_OPEN_CHEST (1491, 1492)
+HOOK_METHOD(Entity_Pickup, TryOpenChest, (Entity_Player* player) -> bool) {
+	if (Entity_Pickup::IsChest(this->_variant) && this->_subtype == 0) {
+		// Already-opened vanilla chest
+		return false;
+	}
+
+	const int preCallbackId = 1491;
+	const int postCallbackId = 1492;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(preCallbackId)
+			.push(this->_variant)
+			.push(this, lua::Metatables::ENTITY_PICKUP)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!results && lua_isboolean(L, -1) && !(bool)lua_toboolean(L, -1)) {
+			return false;
+		}
+	}
+
+	bool opened = super(player);
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(postCallbackId)
+			.push(this->_variant)
+			.push(this, lua::Metatables::ENTITY_PICKUP)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+	}
+
+	return opened;
+}
+
+// MC_PRE/POST_BOMB_DAMAGE (1291/1275)
+HOOK_METHOD(Game, BombDamage, (Vector* pos, float damage, float radius, bool lineCheck, Entity* source, BitSet128 tearFlags, uint64_t damageFlags, bool damageSource) -> void) {
+	Vector posCopy = *pos;
+
+	const int precallbackid = 1291;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(precallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(damage)
+			.push(radius)
+			.push(lineCheck);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		lua::LuaResults results = caller.push(&tearFlags, lua::Metatables::BITSET_128)
+			.push(damageFlags)
+			.push(damageSource)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					if (lua_isstring(L, -2)) {
+						const std::string key = lua_tostring(L, -2);
+						if (key == "Radius" && lua_isnumber(L, -1)) {
+							float newRadius = (float)lua_tonumber(L, -1);
+							if (newRadius < 0) {
+								newRadius = 0;
+							}
+							radius = newRadius;
+						} else if (key == "Damage" && lua_isnumber(L, -1)) {
+							float newDamage = (float)lua_tonumber(L, -1);
+							if (newDamage < 0) {
+								newDamage = 0;
+							}
+							damage = newDamage;
+						} else if (key == "TearFlags" && lua_isuserdata(L, -1)) {
+							BitSet128* newFlags = lua::GetLuabridgeUserdata<BitSet128*>(L, -1, lua::Metatables::BITSET_128, "BitSet128");
+							if (newFlags) {
+								tearFlags = *newFlags;
+							}
+						} else if (key == "DamageFlags" && lua_isnumber(L, -1)) {
+							damageFlags = (uint64_t)std::max(0.0, lua_tonumber(L, -1));
+						} else if (key == "Position" && lua_isuserdata(L, -1)) {
+							Vector* newPos = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+							if (newPos) {
+								posCopy = *newPos;
+							}
+						}
+					}
+					lua_pop(L, 1);
+				}
+			} else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+	}
+	
+	super(&posCopy, damage, radius, lineCheck, source, tearFlags, damageFlags, damageSource);
+
+	const int postcallbackid = 1275;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(postcallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(damage)
+			.push(radius)
+			.push(lineCheck);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		caller.push(&tearFlags, lua::Metatables::BITSET_128)
+			.push(damageFlags)
+			.push(damageSource)
+			.call(1);
+	}
+}
+
+// MC_PRE/POST_BOMB_TEARFLAG_EFFECTS (1292/1276)
+HOOK_METHOD(Game, BombTearflagEffects, (Vector* pos, float radius, BitSet128 tearFlags, Entity* source, float radiusMult) -> void) {
+	Vector posCopy = *pos;
+	
+	const int precallbackid = 1292;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(precallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(radius)
+			.push(&tearFlags, lua::Metatables::BITSET_128);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		lua::LuaResults results = caller.push(radiusMult).call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					if (lua_isstring(L, -2)) {
+						const std::string key = lua_tostring(L, -2);
+						if (key == "Radius" && lua_isnumber(L, -1)) {
+							float newRadius = (float)lua_tonumber(L, -1);
+							if (newRadius < 0) {
+								newRadius = 0;
+							}
+							radius = newRadius;
+						} else if (key == "RadiusMult" && lua_isnumber(L, -1)) {
+							float newRadiusMult = (float)lua_tonumber(L, -1);
+							if (newRadiusMult < 0) {
+								newRadiusMult = 0;
+							}
+							radiusMult = newRadiusMult;
+						} else if (key == "TearFlags" && lua_isuserdata(L, -1)) {
+							BitSet128* newFlags = lua::GetLuabridgeUserdata<BitSet128*>(L, -1, lua::Metatables::BITSET_128, "BitSet128");
+							if (newFlags) {
+								tearFlags = *newFlags;
+							}
+						} else if (key == "Position" && lua_isuserdata(L, -1)) {
+							Vector* newPos = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+							if (newPos) {
+								posCopy = *newPos;
+							}
+						}
+					}
+					lua_pop(L, 1);
+				}
+			} else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+	}
+	
+	super(&posCopy, radius, tearFlags, source, radiusMult);
+
+	const int postcallbackid = 1276;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(postcallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(radius)
+			.push(&tearFlags, lua::Metatables::BITSET_128);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		caller.push(radiusMult).call(1);
+	}
+}
+
+// MC_PRE/POST_APPLY_TEARFLAG_EFFECTS
+HOOK_STATIC(Entity_Tear, ApplyTearFlagEffects, (Entity* entity, Vector* pos, BitSet128 flags, Entity* source, float damage) -> void, __cdecl) {
+	if (!entity) {
+		return;
+	}
+	if (!entity->ToNPC()) {
+		// IDK if this can happen naturally. Ignoring for now.
+		super(entity, pos, flags, source, damage);
+		return;
+	}
+	if (source) {
+		EntityRef ref(source);
+		if (entity->IgnoreEffectFromFriendly(&ref)) {
+			return;
+		}
+	}
+
+	Vector posCopy = *pos;
+
+	const int precallbackid = 1277;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(precallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.push(entity, lua::Metatables::ENTITY_NPC)
+			.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(&flags, lua::Metatables::BITSET_128);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		lua::LuaResults results = caller.push(damage).call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					if (lua_isstring(L, -2)) {
+						const std::string key = lua_tostring(L, -2);
+						if (key == "Damage" && lua_isnumber(L, -1)) {
+							float newDamage = (float)lua_tonumber(L, -1);
+							if (newDamage < 0) {
+								newDamage = 0;
+							}
+							damage = newDamage;
+						} else if (key == "TearFlags" && lua_isuserdata(L, -1)) {
+							BitSet128* newFlags = lua::GetLuabridgeUserdata<BitSet128*>(L, -1, lua::Metatables::BITSET_128, "BitSet128");
+							if (newFlags) {
+								flags = *newFlags;
+							}
+						} else if (key == "Position" && lua_isuserdata(L, -1)) {
+							Vector* newPos = lua::GetLuabridgeUserdata<Vector*>(L, -1, lua::Metatables::VECTOR, "Vector");
+							if (newPos) {
+								posCopy = *newPos;
+							}
+						}
+					}
+					lua_pop(L, 1);
+				}
+			} else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+				return;
+			}
+		}
+	}
+
+	super(entity, &posCopy, flags, source, damage);
+
+	const int postcallbackid = 1278;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller caller(L);
+		caller.push(postcallbackid);
+		if (source) {
+			caller.push(source->_type);
+		} else {
+			caller.pushnil();
+		}
+		caller.push(entity, lua::Metatables::ENTITY_NPC)
+			.pushUserdataValue(posCopy, lua::Metatables::VECTOR)
+			.push(&flags, lua::Metatables::BITSET_128);
+		if (source) {
+			caller.push(source, lua::Metatables::ENTITY);
+		} else {
+			caller.pushnil();
+		}
+		caller.push(damage).call(1);
+	}
+}
+
+//MC_POST_DISCHARGE_ACTIVE_ITEM (1140)
+HOOK_METHOD(Entity_Player, DischargeActiveItem, (unsigned int slot, bool collectilbeRemoved) -> void) {
+	super(slot, collectilbeRemoved);
+
+	const int callbackid = 1140;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackid)
+			.push(_activeDesc[slot]._item)
+			.push(_activeDesc[slot]._item)
+			.push(collectilbeRemoved)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(slot)
+			.call(1);
+	}
+}
+
+//GET_PILL_EFFECT reimplementation (id: 65)
+HOOK_METHOD(ItemPool, GetPillEffect, (unsigned int pillColor, Entity_Player* player) -> int) {
+	int selectedPillEffect = super(pillColor, player);
+	const int callbackid = 65;
+	if (VanillaCallbackState.test(callbackid)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(selectedPillEffect)
+			.push(selectedPillEffect)
+			.push(pillColor & PILL_COLOR_MASK)
+			.push(player, lua::Metatables::ENTITY_PLAYER)
+			.call(1);
+
+		if (!result) {
+			if (lua_isinteger(L, -1)) {
+				const int resultEffect = (int)lua_tointeger(L, -1);
+				if (resultEffect != -1) {
+					selectedPillEffect = resultEffect;
+				}
+			}
+		}
+	}
+	return selectedPillEffect;
+}
+
+//nuke GET_PILL_EFFECT original implementation
+HOOK_STATIC(LuaEngine, GetPillEffect, (int pillEffect, int pillColor) -> int, __stdcall) { return -1; }
+
+EntityRef* lastSource = nullptr;
+
+HOOK_METHOD(Entity, Kill, (EntityRef* source) -> void) {
+	lastSource = source;
+	super(source);
+	lastSource = nullptr;
+}
+
+//POST_ENTITY_KILL reimplementation (id: 68)
+HOOK_STATIC(LuaEngine, PostEntityKill, (Entity* ent) -> void, __stdcall) {
+	const int callbackid = 68;
+	if (VanillaCallbackState.test(callbackid)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(callbackid)
+			.push(ent->_type)
+			.push(ent, lua::Metatables::ENTITY)
+			.push(lastSource, lua::Metatables::ENTITY_REF)
+			.call(1);
+	}
+}
+
+//MC_POST_PLAYER_DROP_TRINKET (id : 1144)
+HOOK_METHOD(Entity_Player, DropTrinket, (Vector* DropPos, bool ReplaceTick) -> Entity_Pickup*) {
+	Entity_Pickup* retTrinket = super(DropPos, ReplaceTick);
+
+	const int callbackid = 1144;
+
+	if (retTrinket && CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		const int trinketID = retTrinket->_subtype;
+
+		bool isGoldenTrinket = (trinketID & TrinketType::TRINKET_GOLDEN_FLAG) > 0;
+		const int maskedTrinket = trinketID & TrinketType::TRINKET_ID_MASK;
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackid)
+			.push(maskedTrinket)
+			.push(maskedTrinket)
+			.pushUserdataValue(*DropPos, lua::Metatables::VECTOR)
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(isGoldenTrinket)
+			.push(ReplaceTick)
+			.push(retTrinket, lua::Metatables::ENTITY_PICKUP)
+			.call(1);
+	}
+
+	return retTrinket;
+}
+
+//MC_GET_BOSS_THEMATIC_ITEM (id : 1493)
+HOOK_METHOD(Room, GetBossThematicItem, (int* retCollectibleType, int* retTrinketType, unsigned int* seed) -> bool) {
+	bool spawned = super(retCollectibleType, retTrinketType, seed);
+	const int callbackid = 1493;
+
+	if (CallbackState.test(callbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults results = lua::LuaCaller(L).push(callbackid)
+			.pushnil()
+			.push(spawned)
+			.push(*retCollectibleType)
+			.push(*retTrinketType)
+			.call(1);
+
+		if (!results) {
+			if (lua_istable(L, -1)) {
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					if (lua_isstring(L, -2)) { //
+						const std::string key = lua_tostring(L, -2);
+						if (key == "Collectible" && lua_isinteger(L, -1)) {
+							int newCollectible = (int)lua_tointeger(L, -1);
+							if (g_Manager->_itemConfig.GetCollectible(newCollectible)) {
+								*retCollectibleType = newCollectible;
+								*retTrinketType = 0;
+								spawned = true;
+							}
+							
+						}
+						else if (key == "Trinket" && lua_isinteger(L, -1)) {
+							int newTrinket = (int)lua_tointeger(L, -1);
+							if (g_Manager->_itemConfig.GetTrinket(newTrinket)) {
+								*retTrinketType = newTrinket;
+								*retCollectibleType = 0;
+								spawned = true;
+							}
+						}
+					}
+					lua_pop(L, 1);
+				}
+			}
+			else if (lua_isboolean(L, -1) && lua_toboolean(L, -1)) {
+				return false;
+			}
+		}
+	}
+
+	return spawned;
+}
+
+// MC_PRE/POST_BRIMSTONE_SNEEZE (1036/1037)
+HOOK_METHOD(Weapon_Brimstone, do_baby_brimstone_burst, (Vector* unused1, Vector* dir, int unused2, float damageScale) -> bool) {
+	const int precallbackid = 1036;
+	if (CallbackState.test(precallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(precallbackid)
+			.pushnil()
+			.push(this->_owner, lua::Metatables::ENTITY)
+			.pushUserdataValue(*dir, lua::Metatables::VECTOR)
+			.push(damageScale)
+			.call(1);
+	}
+
+	bool result = super(unused1, dir, unused2, damageScale);
+
+	const int postcallbackid = 1037;
+	if (CallbackState.test(postcallbackid - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(postcallbackid)
+			.pushnil()
+			.push(this->_owner, lua::Metatables::ENTITY)
+			.pushUserdataValue(*dir, lua::Metatables::VECTOR)
+			.push(damageScale)
+			.call(1);
+	}
+
+	return result;
+}
+
+// MC_PRE/POST_SHUFFLE_COSTUMES (1494/1945)
+HOOK_METHOD(Entity_Player, ShuffleCostumes, (unsigned int seed) -> void) {
+	const int preCallbackId = 1494;
+
+	if (CallbackState.test(preCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaResults result = lua::LuaCaller(L).push(preCallbackId)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(seed)
+			.call(1);
+
+		if (!result && lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+			return;
+		}
+	}
+
+	super(seed);
+
+	const int postCallbackId = 1495;
+
+	if (CallbackState.test(postCallbackId - 1000)) {
+		lua_State* L = g_LuaEngine->_state;
+		lua::LuaStackProtector protector(L);
+		lua_rawgeti(L, LUA_REGISTRYINDEX, g_LuaEngine->runCallbackRegistry->key);
+
+		lua::LuaCaller(L).push(preCallbackId)
+			.push(this->GetPlayerType())
+			.push(this, lua::Metatables::ENTITY_PLAYER)
+			.push(seed)
+			.call(0);
+	}
+}
+
+void CustomCallbacks::detail::ApplyPatches()
+{
+	Patch_PlayerRemoveCollectible_TriggerCollectibleRemoved();
+	Patch_PlayerRecomputeWispCollectibles_TriggerCollectibleRemoved();
+    Patch_PlayerTriggerCollectibleRemoved_Stompy();
+    Patch_PlayerTriggerCollectibleRemoved_Heartbreak();
+	Patch_EntityPickupGetLootList_SelectRNG();
+	Patch_EntityNPCGetFireplaceLoot_SelectRNG();
+	Patch_EntityNPCGetShopkeeperLoot_SelectRNG();
+}

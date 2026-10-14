@@ -1,0 +1,46 @@
+Oct13 20:32–20:37 EDT: scripted NATIVE saved-design inventory acceptance.
+Supported official launcher: REPENTOGON1.1.3 / Repentance+1.9.7.12.J273.
+Fresh Hard Isaac, slot3 independently selected before start; seed KQS9 3PFZ.
+Guard armed=true, continued=false, slot3. QA uses engine ChangePlayerType,
+removes current real collectibles and calls production ApplySetup twice.
+These are REQUIRED item counts, not a proof of exact complete inventory.
+
+Expected one copy after first AND second ApplySetup; actual:
+BlueBaby type4 tick30:725=1,358=1,378=1,675=1 / same second call PASS.
+Eden type9 tick90:697=1,240=1 / same second call PASS.
+Bethany type18 tick150:569=1 / same second call PASS.
+TaintedLost type31 tick210:431=1,75=1,619=1 / same second call PASS.
+TaintedEden type30 tick270:721=1 / same second call PASS.
+5/5 required-grant cases PASS; DONE tick330, dead=false.
+Native type equality and alive player also required in each case.
+
+NOT fresh native menu runs per character, organic pickups/combat, twins,
+mechanics, Continue/key reset, duplicate saved-kit restoration or full
+inventory exclusion certification. Duplicate baseline limitation retained.
+No production edit this lane. Prior successful QA was NOT replayed.
+
+Native pause Exit Game -> native menu; CloseMainWindow=True, shutdown success.
+Full2032 entering backup70files; restoreSHA25670; independentAUDIT70/0mismatch.
+GAME_RUNNING=False, HELPER_PRESENT=False. MusicEnabled1/volume0.6/SFX0.5,
+Fullscreen1/UseExclusiveFullscreen0 restored; supported runtime unchanged.
+Original pre0002 living-chain mod-data backup gap NOT resolved by this audit.
+
+Full log/executed main/QA final trees archived:
+C:\Users\perfe\IsaacResumedBackup-20261013-2032
+Fixture: qa-evidence/saved-design-native-inventory.lua (QA-only, NOT release).
+Preservation scripts/build: tmp/isaac-playtest/2032-*.
+
+Tooling recovery retained: initial bare PowerShell syntax rejected by cmd,
+recovered explicit powershell invocation; initial launcher lookup 'Launch'
+did nothing, actual 'Launch game' exposes Pane without InvokePattern, recovered
+owner-guarded native click on actual observed launch rectangle. Initial large
+capture truncated, recovered600x350. Known fullscreen-only black display
+recovered foreground-guarded F; native GUI then positive before each input.
+No gameplay/runtime/audio repair claims from these tooling failures.
+
+No TV/known-crash helpers/ascent/bed/Needle/Clicker/natural3/boss replay,
+subagents, routineDiscord or overlap. COMPLETE1402 still coldverified,
+identical finale retry prohibited; Beast/permanentbadge/menuUNVERIFIED.
+Deadline21:15. Existing work/hourly reporter needed until completion/deadline;
+next unfinished native Bird Continue/nextroom/reset or LazarusXL, or final
+clean tested package/honest coverage report on next21:02 lane.

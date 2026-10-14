@@ -1,0 +1,6 @@
+Entering state: independent1232 AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False
+Full1302 backup: BACKUP_FILES=70 before installing new observer.
+Normal CloseMainWindow=True, process closed, Isaac has shut down successfully.
+RESTORED_SHA256_FILES=70 HELPER_PRESENT=False GAME_RUNNING=False
+Independent1302 AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False HELPER_PRESENT=False
+Audio/options/runtime preserved. Originalpre0002 living-chain mod-data omission remains unresolved.

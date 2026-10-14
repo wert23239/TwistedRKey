@@ -1,0 +1,23 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - 	C:\Program Files (x86)\Steam\steamapps\common\The Binding of Isaac Rebirth\Repentogon\isaac-ng.exe
+[INFO] - Binding of Isaac: Repentance+ v1.9.7.12.J273
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata1.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata1.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata2.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata2.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Lua Debug: [NATURAL QA] {"actual":{"after":{"gain":0.5,"stage":1,"kind":6,"counter":1,"red":5,"damage":3.0},"before":{"gain":0,"stage":1,"kind":6,"counter":0,"red":6,"damage":3.5}},"expected":"damage decreases on floor one","label":"pre-trapdoor hit","result":"PASS"}
+[INFO] - Lua Debug: [NATURAL QA] {"actual":{"clicker":0,"draws":3000},"expected":"zero Clicker in 3000 seeded draws across pools 0-5","label":"Clicker pool samples","result":"PASS"}
+[INFO] - Lua Debug: [NATURAL QA] {"actual":{"subtype":25},"expected":"late Clicker mutation replaced by Breakfast","label":"Clicker late pedestal mutation","result":"PASS"}
+[INFO] - Lua Debug: [NATURAL QA] killed boss entities=20
+[INFO] - Lua Debug: [NATURAL QA] entering actual boss trapdoor index=37
+[INFO] - Lua Debug: [NATURAL QA] {"actual":{"after":{"gain":0,"stage":2,"kind":6,"counter":0,"red":5,"damage":3.5},"before":{"gain":0.5,"stage":1,"kind":6,"counter":1,"red":5,"damage":3.0}},"expected":"penalty clears on actual trapdoor transition","label":"natural floor-two reset","result":"PASS"}
+[INFO] - Lua Debug: [NATURAL QA] {"actual":{"after":{"gain":0.5,"stage":2,"kind":6,"counter":1,"red":5,"damage":3.0},"before":{"gain":0,"stage":2,"kind":6,"counter":0,"red":6,"damage":3.5}},"expected":"red hit reduces damage on naturally entered floor two","label":"natural floor-two hit","result":"PASS"}
+[INFO] - Lua Debug: [NATURAL QA] DONE
+True
+[INFO] - Isaac has shut down successfully 
+

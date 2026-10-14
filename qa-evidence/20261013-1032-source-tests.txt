@@ -1,0 +1,34 @@
+TEST tests/beast-early-reset-experiment.lua
+TEST tests/beast-home-gate.lua
+PASS: approved Home-only Beast-LAST gate, player guard, deferred once-only ordinary reset, ten-check admission, continue/start reevaluation, complete normal victory; mock only
+TEST tests/chain-tracker.lua
+PASS: 11 hard-only checks, legacy isolation, continue/key persistence, death/new-run reset, permanent badges, Lazarus identity, no cross-character aggregation
+PASS: native callback mapping, ignored Greed/Dogma events, Beast-last award, no-cycle rejection, cold badge reload, death/new-run permanent badge; mock only
+TEST tests/character-mechanics.lua
+PASS: 4-room/unique-room trigger, red/soul conversions, all-rotten cap, per-player isolation, negative pill consume/unlock/new-floor/continue, sticky trinket, baseline items. Engine black-heart/half-heart behavior and input timing still require game testing.
+TEST tests/completion-overlay.lua
+PASS: menu badge earned/canonical/character-isolated/menu-only; pause 11 checks/full glyph, Beast-last incomplete, It Lives alias, gameplay menu exception guarded; mock only
+TEST tests/item-exclusions.lua
+PASS: Clicker pool start/reset, selection fallback, direct grant rejection, spawned/rerolled pedestal replacement, use cancellation, held-item removal
+TEST tests/needle-floor.lua
+PASS: first/healed hit, delayed floor-two/three counter resets, split-tick red hit, soul-only exclusion, floor persistence, same-floor Twisted reset, retained continue state
+PASS: same-tick healed red-hit baseline
+PASS: continue damage cache refresh
+TEST tests/pool-cost.lua
+PASS: lost acquired items stay out of pool; baseline kit/key excluded; continue reapplies exclusions
+TEST tests/strip-innate.lua
+PASS: bounded strip handles innate Bloody Lust, custom IDs beyond vanilla count, and non-removable Tick
+SYNTAX PASS main.lua
+SYNTAX PASS scripts/twisted_r_key.lua
+SYNTAX PASS scripts/item_exclusions.lua
+SYNTAX PASS scripts/saved_designs.lua
+SYNTAX PASS scripts/character_setups.lua
+SYNTAX PASS scripts/boss_tracker.lua
+SYNTAX PASS scripts/beast_reset.lua
+SYNTAX PASS scripts/completion_overlay.lua
+SYNTAX PASS scripts/character_mechanics.lua
+SYNTAX PASS scripts/progression.lua
+SYNTAX PASS scripts/custom_items.lua
+SYNTAX PASS scripts/loadout_presets.lua
+SYNTAX PASS qa-evidence/cain-pickup-reset-harness.lua
+Deferred Cain contracts: effect-update does not poll; render queues without native effect; paused/disabled controls blocked; Continue/floor/key discard queued edge PASS

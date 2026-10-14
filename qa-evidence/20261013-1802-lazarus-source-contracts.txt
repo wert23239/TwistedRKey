@@ -1,0 +1,15 @@
+PASS MOCK: unready skips all processing
+PASS MOCK: nonboss room skipped
+PASS MOCK: XL first boss skipped
+PASS MOCK: lastboss calls Die once and saves
+PASS MOCK: repeat award on samefloor does not spend secondlife
+PASS MOCK: next floor rearms death
+PASS MOCK: item absent does not kill
+PASS MOCK: zero extra lives still requests native death
+PASS MOCK: players independently gated by item
+PASS MOCK: perplayer floor guard remains independent
+PASS MOCK: token prevents synchronous reentrant double death
+PASS MOCK: continued samefloor state skips repeat death
+PASS MOCK: missing last descriptor currently fails open (characterization only)
+13 production Forced Resurrection callback MOCK contracts PASS; native revival, floor exit timing and terminal gameover NOT verified
+QA-only read-only Lazarus observer syntax PASS; NOT deployed/engine executed

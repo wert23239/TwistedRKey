@@ -1,0 +1,12 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [RESET QA] {"actual":{"before":{"counter":0,"damage":3.5,"gain":0,"stage":1,"kind":6,"red":6},"after":{"counter":1,"damage":3.0,"gain":0.5,"stage":1,"kind":6,"red":5}},"result":"PASS","label":"pre-trapdoor hit","expected":"damage decreases on floor one"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"clicker":0,"draws":3000},"result":"PASS","label":"Clicker pool samples","expected":"zero Clicker in 3000 seeded draws across pools 0-5"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"subtype":25},"result":"PASS","label":"Clicker late pedestal mutation","expected":"late Clicker mutation replaced by Breakfast"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"held":false,"spent":true,"bannedDraws":0,"stage":1,"cycle":1},"result":"PASS","label":"reset 1 retains spent exclusion","expected":"Pentagram spent, stripped; no Pentagram\/Clicker in3000 draws; cycle increments"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"before":{"counter":0,"damage":3.5,"gain":0,"stage":1,"kind":6,"red":6},"after":{"counter":1,"damage":3.0,"gain":0.5,"stage":1,"kind":6,"red":5}},"result":"PASS","label":"reset 1 Needle hit","expected":"post-key red hit reduces damage"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"held":false,"spent":true,"bannedDraws":0,"stage":1,"cycle":2},"result":"PASS","label":"reset 2 retains spent exclusion","expected":"Pentagram spent, stripped; no Pentagram\/Clicker in3000 draws; cycle increments"}
+[INFO] - Lua Debug: [RESET QA] {"actual":{"before":{"counter":0,"damage":3.5,"gain":0,"stage":1,"kind":6,"red":6},"after":{"counter":1,"damage":3.0,"gain":0.5,"stage":1,"kind":6,"red":5}},"result":"PASS","label":"reset 2 Needle hit","expected":"post-key red hit reduces damage"}
+[INFO] - Lua Debug: [RESET QA] DONE
+

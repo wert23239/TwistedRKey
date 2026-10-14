@@ -1,5 +1,7 @@
 # Twisted R Key — Hard-chain playtest
 
+**Latest handoff:** [October 13 final QA report](FINAL-QA-20261013.md). Targeted tests passed, but native Dogma crashes in the preserved Home fixture; Beast completion and permanent badge/menu remain unverified. The final ZIP excludes the deferred Cain input candidate retained in this source checkout.
+
 An Isaac Repentance+ mod: defeat completion bosses, use the dropped Twisted R Key to return to Basement I, lose acquired items, and restore your character's starting kit. Lost held items remain excluded from the pool for that living chain.
 
 ## Current rules

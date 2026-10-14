@@ -1,0 +1,60 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+True
+[INFO] - Game Version: J273 
+[INFO] - Binding of Isaac: Repentance+ v1.9.7.12.J273
+[INFO] - Lua Debug: [MEGA LOCATION] slot {"slot":1}
+[INFO] - Lua Debug: [MEGA LOCATION] slot {"slot":3}
+[INFO] - Lua Debug: [MEGA LOCATION] start {"seed":"3D6Q 1N3W","difficulty":1,"continued":true,"type":6}
+[INFO] - Lua Debug: [MEGA LOCATION] start {"seed":"ZPGV 1KTN","difficulty":1,"continued":false,"type":6}
+[INFO] - Lua Debug: [MEGA LOCATION] start {"seed":"SSP6 AGB0","difficulty":1,"continued":false,"type":6}
+[INFO] - Lua Debug: [MEGA LOCATION] fixed seed fixture {"seed":"SSP6 AGB0","trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] fixture {"bosses":[{"type":274,"variant":1},{"type":274,"variant":0},{"type":274,"variant":2}],"trial":1}
+[INFO] - Lua Debug: [MEGA LOCATION] pickup init {"trial":1,"x":320.0,"tick":1071,"y":420.0,"subtype":733}
+[INFO] - Lua Debug: [Twisted R Key] Spawned Twisted R Key in endgame boss room
+[INFO] - Lua Debug: [MEGA LOCATION] clean award {"tick":1071,"trial":1,"position":{"x":320.0,"y":420.0},"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] native {"tick":1071,"event":6,"trial":1}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1080,"trial":1,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1140,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1200,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1260,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1320,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1380,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1440,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1500,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1560,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1620,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1680,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1740,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1800,"trial":1,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":733,"3":0},"owned":1}}
+[INFO] - Lua Debug: [MEGA LOCATION] ASSERT {"label":"Mega reward center","actual":{"pedestals":0,"id":733,"mega":true,"owned":1,"slots":{"2":0,"1":0,"0":733,"3":0},"native":true,"clear":true,"seed":"SSP6 AGB0"},"result":"PASS","expected":"exactly one key in inventory OR on pedestal"}
+[INFO] - Lua Debug: [MEGA LOCATION] ASSERT {"label":"native Mega 1","actual":{"pedestals":0,"id":733,"mega":true,"owned":1,"slots":{"2":0,"1":0,"0":733,"3":0},"native":true,"clear":true,"seed":"SSP6 AGB0"},"result":"PASS","expected":"real event6 credits Mega"}
+[INFO] - Lua Debug: [MEGA LOCATION] start {"seed":"SSP6 AGB0","difficulty":1,"continued":false,"type":6}
+[INFO] - Lua Debug: [MEGA LOCATION] start {"seed":"SSP6 AGB0","difficulty":1,"continued":false,"type":6}
+[INFO] - Lua Debug: [MEGA LOCATION] fixed seed fixture {"seed":"SSP6 AGB0","trial":2,"inventory":{"pedestals":0,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] fixture {"bosses":[{"type":274,"variant":1},{"type":274,"variant":0},{"type":274,"variant":2}],"trial":2}
+[INFO] - Lua Debug: [MEGA LOCATION] pickup init {"trial":2,"x":320.0,"tick":1071,"y":420.0,"subtype":733}
+[INFO] - Lua Debug: [Twisted R Key] Spawned Twisted R Key in endgame boss room
+[INFO] - Lua Debug: [MEGA LOCATION] clean award {"tick":1071,"trial":2,"position":{"x":320.0,"y":570.0},"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] native {"tick":1071,"event":6,"trial":2}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1080,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1140,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1200,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1260,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1320,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1380,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1440,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1500,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1560,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1620,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1680,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1740,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] post native inventory {"tick":1800,"trial":2,"inventory":{"pedestals":1,"id":733,"slots":{"2":0,"1":0,"0":0,"3":0},"owned":0}}
+[INFO] - Lua Debug: [MEGA LOCATION] ASSERT {"label":"Mega reward away","actual":{"pedestals":1,"id":733,"mega":true,"owned":0,"slots":{"2":0,"1":0,"0":0,"3":0},"native":true,"clear":true,"seed":"SSP6 AGB0"},"result":"PASS","expected":"exactly one key in inventory OR on pedestal"}
+[INFO] - Lua Debug: [MEGA LOCATION] ASSERT {"label":"native Mega 2","actual":{"pedestals":1,"id":733,"mega":true,"owned":0,"slots":{"2":0,"1":0,"0":0,"3":0},"native":true,"clear":true,"seed":"SSP6 AGB0"},"result":"PASS","expected":"real event6 credits Mega"}
+[INFO] - Lua Debug: [MEGA LOCATION] DONE {"reason":"two controlled placements, no synthetic marks"}
+[INFO] - Isaac has shut down successfully 
+
+
+Preservation: backed up all70 entering files; normal successful shutdown; archived QA saves/logs; restored70 SHA256-matching files. Helper absent/game closed. Earlier pre0002 living-chain omission remains.

@@ -1,0 +1,11 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+RESTORED 33 save/config/mod-data files with SHA256 equality; clean main restored; game closed
+[INFO] - Lua Debug: [NATURAL QA] {"expected":"damage decreases on floor one","actual":{"after":{"damage":3.0,"gain":0.5,"kind":6,"red":5,"counter":1,"stage":1},"before":{"damage":3.5,"gain":0,"kind":6,"red":6,"counter":0,"stage":1}},"result":"PASS","label":"pre-trapdoor hit"}
+[INFO] - Lua Debug: [NATURAL QA] {"expected":"zero Clicker in 3000 seeded draws across pools 0-5","actual":{"draws":3000,"clicker":0},"result":"PASS","label":"Clicker pool samples"}
+[INFO] - Lua Debug: [NATURAL QA] {"expected":"late Clicker mutation replaced by Breakfast","actual":{"subtype":25},"result":"PASS","label":"Clicker late pedestal mutation"}
+[INFO] - Lua Debug: [NATURAL QA] killed boss entities=1
+[INFO] - Lua Debug: [NATURAL QA] entering actual boss trapdoor index=37
+[INFO] - Lua Debug: [NATURAL QA] {"expected":"stage2 reached","actual":{"stage":1,"entered":true},"result":"FAIL","label":"natural transition timeout"}
+

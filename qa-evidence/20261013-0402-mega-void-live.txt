@@ -1,0 +1,23 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+ENTERING_SHA256_FILES=70
+GAME_RECOVERY_SHA256_FILES=2477
+HELPER_PRESENT=False
+GAME_RUNNING=False
+[INFO] - Game Version: J273 
+[INFO] - Lua Debug: [VOID TRACE] slot {"slot":3}
+[INFO] - Lua Debug: [VOID TRACE] seed {"trial":1,"seed":"2FQJ WTAR"}
+[INFO] - Lua Debug: [VOID TRACE] fixture {"bosses":[{"variant":1,"type":274},{"variant":0,"type":274},{"variant":2,"type":274}],"trial":1}
+[INFO] - Lua Debug: [VOID TRACE] clean-award {"grid":-7,"tick":1071,"trial":1,"stage":11}
+[INFO] - Lua Debug: [VOID TRACE] completion {"tick":1071,"trial":1,"event":6}
+[INFO] - Lua Debug: [VOID QA] {"result":"PASS","actual":{"clear":true,"seed":"2FQJ WTAR","valid":true,"keys":1},"label":"Mega reward trial 1"}
+[INFO] - Lua Debug: [VOID QA] {"result":"PASS","actual":{"marks":{"mega_satan":true}},"label":"Mega native trial 1"}
+[INFO] - Lua Debug: [VOID TRACE] generated portal {"sprite":"gfx\/grid\/VoidTrapdoor.anm2","index":157,"state":1}
+[INFO] - Lua Debug: [VOID QA] {"result":"PASS","actual":{"marks":{"mega_satan":true},"stage":12},"label":"actual generated Void entry"}
+[INFO] - Lua Debug: [VOID QA] {"result":"PASS","actual":{"marks":{"mega_satan":true},"cycles":1,"stage":1},"label":"key after Void entry preserves Mega chain"}
+[INFO] - Lua Debug: [VOID QA] DONE
+
+
+Coverage: generated Mega arena with debug stage/room setup and scripted damage; actual naturally generated Void trapdoor entry, not stage warp into Void. Four live assertions PASS. One seed only; prior missing Mega reward remains unresolved.
+Restore-script recovery: initial PowerShell array elements used comma plus unparenthesized $g+'suffix', producing three elements and targeting game root rather than mod directories. Files were archived, not deleted. Recovered 2477 game files from extras-mod-data, restored clean backed-up mod/mod-data with correctly parenthesized paths. Recovery command emitted completion but reported timeout; subsequent independent audit verifies all2477 game files plus70 entering native/config/mod/mod-data/extra-save files SHA256. Helper absent/game closed. No runtime/audio reconfiguration. Prior pre-0002 living-chain omission remains unresolved.

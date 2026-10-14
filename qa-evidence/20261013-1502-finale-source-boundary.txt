@@ -1,0 +1,26 @@
+NEW offline finale investigation; no game launch/input/TV retry or Windows mutations.
+Nodes status: Isaac-PC connected. Process inspection: isaac-ng absent. Two existing PowerShell processes predate this lane (10/12 10:40 and 10/13 12:02); not killed/restarted. Independent comparison against1432 entering backup: AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False.
+
+Read-only installed mod resource inventory:
+- Aaron door overhaul: disabled=True, zero *.stb / rooms*.xml / entities2.xml found.
+- External item descriptions: disabled=False, zero matching room/entity resource files found.
+- Twisted R Key: disabled=False, only content/entities2.xml matches; custom effect1000/variant17730, not Dogma950 or Beast951.
+This narrows static room-resource override suspicion, NOT arbitrary Lua/runtime interference or proof that mods are innocent. No mods disabled/deleted.
+COMPLETE1402 RGON companion JSON: VirtualRoomSetManager Rooms=[], EntitySaveStateManagement EntitySaveStates=[], matching checksum3972934244 in game-state companions. Empty virtual-room database does NOT prove native special room descriptors are missing; prior1232 actual BeastRoom Data was nonnull. No save edited.
+Installed Repentogon/repentogon.log last write11:34:28, earlier than1432 crash: do NOT label its tail as1432 crash evidence. No *.dmp under searched Repentogon subtree; this is NOT exhaustive global dump absence.
+
+NEW upstream source boundary evidence (NOT installed-binary equivalence):
+CustomCallbacks.cpp lines1132-1173 installs MC_PRE_CHANGE_ROOM1061 on Level::ChangeRoom(int roomId,int dimension), not RoomTransition::ChangeRoom(). libzhl/functions/RoomTransition.zhl independently declares RoomTransition::ChangeRoom() and internal _roomIndex/_roomDimension fields. The assertion names RoomTransition::change_room. This supplies a concrete architectural explanation for why safe-door callback acceptance cannot guarantee observation of this internal finale assertion. It does NOT prove this crash's call order/target or root cause.
+LuaRoomTransition.cpp public global registration exposes transition mode, intro status and sprites, plus mutating StartBossIntro; it does NOT expose read-only destination index/dimension getters. StartBossIntro explicitly overwrites _roomIndex as a safety measure before invoking intro. This is evidence of upstream awareness of invalid intro target hazards, NOT an authorized/proven fix for native Dogma. Do NOT call it as a repair, add binary/memory hooks, downgrade/change runtime, or fabricate descriptor values. A mode-only observer would not answer the missing destination question, so no new helper was deployed.
+
+Production source audit finds no direct ChangeRoom/StartRoomTransition/SetStage/SetRoom/Dogma mutation in production modules; reset uses stage1 only on actual Twisted activation. Custom entity removal callbacks are type/variant-restricted. This does NOT rule out indirect callback/cache/fixture effects.
+
+Next: independent remaining-character acceptance or genuinely different isolated fresh-native-route fixture after preservation, NOT another SAME1402 TV attempt or more safe-door logger/arena scans. Need actual internal target evidence before claiming finale repair. Beast/permanent badge/menu remain UNVERIFIED. Natural-floor3 already PASS at1002; preserve that evidence, do not replay due stale original payload. Deferred Cain fix retained; no ZIP rebuild or release claims. Original pre0002 living-chain mod-data gap unchanged. Runtime/audio/saves/options/mod files untouched; no routine Discord/subagents/overlap. Work/hourly reporter still needed until21:15.
+
+Upstream main commit captured AFTER source downloads: 9b84409f1c7fa0c50cef5473d7b7a883b94c1b53 (moving main downloads; not claimed installed exact build).
+1502-ASMRoom.cpp SHA256 083e5a87a178336fea5645f9b0217be8938a96a0be7b2a73876377a71dc3078b
+1502-CustomCallbacks.cpp SHA256 bab46e6b6676d1c0c8cf8efe82cdb23bb9df8ecfd4c8b363c2c1f0c0de9da79a
+1502-LuaRoomTransition.cpp SHA256 33d0d72a8a1ab51ebc3999831cd40172eaf96fd5f5560a3bfd6e81725a258524
+1502-RoomTransition.zhl SHA256 f002ecd152f00195fc6a4cd20fbf7cb06c6cc2c4ab5e7bd7b715d5137e3eb962
+1502-VirtualRoomSetManager.cpp SHA256 db6e75b09bc58e50c4fb3636747cf82f0e77e556b6cff0c63c3f72233f35d38f
+1502-runtime-tree.json SHA256 1291ef91813ae7562c17dc4d90cff45dec9966eec4ef005d63ba197da461ea62

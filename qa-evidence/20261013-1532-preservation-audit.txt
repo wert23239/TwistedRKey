@@ -1,0 +1,6 @@
+Read-only independent entering1432 comparison on Isaac-PC.
+AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+No Windows mutation or game launch in1532 lane; audio/runtime preserved.
+This certifies entering1432 files only, NOT original pre0002 omitted mod-data.

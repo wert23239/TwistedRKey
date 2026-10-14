@@ -1,0 +1,48 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+LOG q-unconsumed.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"type":2,"floor":"1148018270:1:1","pending":true,"difficulty":1,"lucky":true,"cycle":0,"seed":"T2AD NR2D","stage":1,"card":0,"pill":1,"effect":25},"expected":"Cain pending pill LuckyFoot","label":"fresh pending kit","result":"PASS"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"type":2,"floor":"1148018270:1:1","pending":true,"difficulty":1,"lucky":true,"cycle":0,"pickupExists":true,"seed":"T2AD NR2D","stage":1,"card":0,"pill":1,"effect":25},"expected":"real Fool remains; pending pill unchanged","label":"native locked card collision rejected","result":"PASS"}
+LOG cold-q-unconsumed.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] RESUME {"card":0,"cycle":0,"seed":"T2AD NR2D","effect":25,"stage":1,"type":2,"pending":true,"lucky":true,"floor":"1148018270:1:1","pill":1,"difficulty":1}
+[INFO] - Lua Debug: [CAIN PICKUP QA] input-observe {"lucky":true,"rawQ":true,"controller":0,"floor":"1148018270:1:1","card":0,"cycle":0,"seed":"T2AD NR2D","trigger":false,"effect":25,"stage":1,"type":2,"pending":true,"ready":true,"controls":true,"pill":1,"difficulty":1}
+LOG render-candidate-pass.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] RESUME {"difficulty":1,"seed":"T2AD NR2D","cycle":0,"pending":true,"stage":1,"type":2,"pill":1,"floor":"1148018270:1:1","lucky":true,"card":0,"effect":25}
+[INFO] - Lua Debug: [CAIN PICKUP QA] consumed {"difficulty":1,"seed":"T2AD NR2D","cycle":0,"pending":false,"stage":1,"type":2,"pill":0,"floor":"1148018270:1:1","lucky":true,"card":0,"effect":25}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"player":true,"variant":300}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"expected":"actual Fool acquired after Q","actual":{"difficulty":1,"seed":"T2AD NR2D","cycle":0,"pending":false,"stage":1,"type":2,"pill":0,"card":1,"floor":"1148018270:1:1","lucky":true,"pickupExists":false,"effect":25},"result":"PASS","label":"native unlocked card pickup succeeds"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"expected":"stage1 cycle1 pending pill\/card0 LuckyFoot","actual":{"difficulty":1,"seed":"T2AD NR2D","cycle":1,"pending":true,"stage":1,"type":2,"pill":1,"floor":"1148018270:1:0","lucky":true,"card":0,"effect":47},"result":"PASS","label":"actual key resets Cain kit and relocks"}
+LOG render-effect-crash.log
+[ASSERT] - PopRenderTarget: stack is empty!
+[INFO] - Caught exception, writing minidump...
+LOG crash-stale-continue.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"T2AD NR2D","pending":false,"card":0,"type":2,"cycle":1,"effect":47,"stage":1,"lucky":true,"pill":1,"floor":"1148018270:1:0"},"expected":"HardCain stage1 cycle1 pending pill LuckyFoot; compare seed\/effect\/floor with prior log","result":"FAIL","label":"cold Continue retains Cain reset pending kit"}
+LOG deferred-pickup-reset-pass.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] native-pickup-collision {"phase":"unlocked","subtype":1,"variant":300,"player":true}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":false,"card":1,"type":2,"cycle":0,"effect":47,"stage":1,"pickupExists":false,"lucky":true,"pill":0,"floor":"324160887:1:0"},"expected":"actual Fool acquired after Q","result":"PASS","label":"native unlocked card pickup succeeds"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":true,"card":0,"type":2,"cycle":1,"effect":15,"stage":1,"lucky":true,"pill":1,"floor":"324160887:1:0"},"expected":"stage1 cycle1 pending pill\/card0 LuckyFoot","result":"PASS","label":"actual key resets Cain kit and relocks"}
+LOG deferred-cold-continue-pass.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","type":2,"pill":1,"cycle":1,"pending":true,"floor":"324160887:1:0","effect":15,"stage":1,"card":0,"lucky":true},"label":"cold Continue retains Cain reset pending kit","expected":"HardCain stage1 cycle1 pending pill LuckyFoot; compare seed\/effect\/floor with prior log","result":"PASS"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"nativeEffect":15,"difficulty":1,"seed":"D4W0 3NNM","type":2,"pill":0,"cycle":1,"pending":false,"floor":"324160887:1:0","effect":15,"stage":1,"card":0,"lucky":true},"label":"production render polling consumes exact pending pill after cold Continue","expected":"native selected effect; pending false; pocket empty; same seed","result":"PASS"}
+[INFO] - Isaac has shut down successfully 
+
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+LOG deferred-pickup-reset-pass.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"T2AD NR2D","pending":false,"card":0,"type":2,"cycle":1,"effect":47,"stage":1,"lucky":true,"pill":1,"floor":"1148018270:1:0"},"expected":"HardCain stage1 cycle1 pending pill LuckyFoot; compare seed\/effect\/floor with prior log","result":"FAIL","label":"cold Continue retains Cain reset pending kit"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":true,"card":0,"type":2,"cycle":0,"effect":47,"stage":1,"lucky":true,"pill":1,"floor":"324160887:1:0"},"expected":"Cain pending pill LuckyFoot","result":"PASS","label":"fresh pending kit"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":true,"card":0,"type":2,"cycle":0,"effect":47,"stage":1,"pickupExists":true,"lucky":true,"pill":1,"floor":"324160887:1:0"},"expected":"real Fool remains; pending pill unchanged","result":"PASS","label":"native locked card collision rejected"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":false,"card":1,"type":2,"cycle":0,"effect":47,"stage":1,"pickupExists":false,"lucky":true,"pill":0,"floor":"324160887:1:0"},"expected":"actual Fool acquired after Q","result":"PASS","label":"native unlocked card pickup succeeds"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","pending":true,"card":0,"type":2,"cycle":1,"effect":15,"stage":1,"lucky":true,"pill":1,"floor":"324160887:1:0"},"expected":"stage1 cycle1 pending pill\/card0 LuckyFoot","result":"PASS","label":"actual key resets Cain kit and relocks"}
+LOG deferred-cold-continue-pass.log
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"difficulty":1,"seed":"D4W0 3NNM","type":2,"pill":1,"cycle":1,"pending":true,"floor":"324160887:1:0","effect":15,"stage":1,"card":0,"lucky":true},"label":"cold Continue retains Cain reset pending kit","expected":"HardCain stage1 cycle1 pending pill LuckyFoot; compare seed\/effect\/floor with prior log","result":"PASS"}
+[INFO] - Lua Debug: [CAIN PICKUP QA] ASSERT {"actual":{"nativeEffect":15,"difficulty":1,"seed":"D4W0 3NNM","type":2,"pill":0,"cycle":1,"pending":false,"floor":"324160887:1:0","effect":15,"stage":1,"card":0,"lucky":true},"label":"production render polling consumes exact pending pill after cold Continue","expected":"native selected effect; pending false; pocket empty; same seed","result":"PASS"}
+

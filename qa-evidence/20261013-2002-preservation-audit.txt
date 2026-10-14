@@ -1,0 +1,7 @@
+Isaac-PC connected; process inspection before local QA: retained powershell2060 and REPENTOGONLauncher10568 plus current inspection. No isaac-ng/overlapping gameplay observed.
+Independent authoritative1932 SHA256 comparison via node_exec:
+AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+No Windows mutations this lane; existing saves/audio/options/runtime left unchanged. This certifies entering1932 comparison only, NOT original pre0002 chain moddata.
+Own job7d888a78-4387-412f-92d4-f9c836a7311f enabled; current lane running/priorOK/consecutiveErrors0. Deadline21:15 EDT; not finished, job retained.

@@ -1,0 +1,3 @@
+Read-only audit against full entering2032 backup: AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False HELPER_PRESENT=False
+Processes: retained powershell2060 / REPENTOGONLauncher10568 plus own inspection only. No overlapping game/action observed. No Windows mutations. Earlier preservation boundary/pre0002 gap remains.

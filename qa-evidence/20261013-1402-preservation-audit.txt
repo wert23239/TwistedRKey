@@ -1,0 +1,8 @@
+Entering1332 audit70/0mismatches/gameclosed/helpersabsent.
+Full entering1402 BACKUP_FILES=70.
+NativeExit save=true/room109/tick1980/tenchecks/cycle1/SAMEseed; normalshutdown.
+COMPLETE1402 Living save35files/RGON+matchingmod-data archived before restoration.
+RESTORED_SHA256_FILES=70 HELPER_PRESENT=False GAME_RUNNING=False
+Independent AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False HELPER_PRESENT=False
+MusicVolume=0.6000 MusicEnabled=1 SFXVolume=0.5000 Fullscreen=1 UseExclusiveFullscreen=0
+Originalpre0002 backupgap remains; audit certifies entering1402 only.

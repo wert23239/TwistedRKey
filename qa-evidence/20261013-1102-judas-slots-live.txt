@@ -1,0 +1,21 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":3}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"result":"PASS","actual":{"hard":1,"purple":true,"book":true,"purse":true,"c0":0,"stage":1,"t0":5,"t1":0,"c1":0,"cycle":0,"seed":"69FR MZ0W","type":3},"expected":"Purple Heart single slot, Moms Purse, Book","label":"Judas starting real two-slot kit"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"result":"PASS","actual":{"hard":1,"purple":true,"c1":0,"book":true,"purse":true,"c0":0,"stage":1,"t0":5,"t1":1,"exists":false,"cycle":0,"seed":"69FR MZ0W","type":3},"expected":"real Swallowed Penny in spare slot","label":"native second trinket pickup allowed"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"result":"PASS","actual":{"hard":1,"purple":true,"c1":0,"book":true,"purse":true,"c0":0,"stage":1,"t0":5,"t1":1,"exists":true,"cycle":0,"seed":"69FR MZ0W","type":3},"expected":"third trinket remains, both slots unchanged","label":"native third trinket cannot replace Purple Heart"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] READY {"actual":{"hard":1,"purple":true,"book":true,"purse":true,"c0":1,"stage":1,"t0":5,"t1":1,"c1":2,"cycle":0,"seed":"69FR MZ0W","type":3},"action":"external short Ctrl tap"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"result":"PASS","actual":{"hard":1,"purple":true,"book":true,"purse":true,"c0":2,"stage":1,"t0":5,"t1":1,"c1":1,"cycle":0,"seed":"69FR MZ0W","type":3},"expected":"cards swap while real trinkets stay","label":"external short Ctrl cycles actual card slots"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"result":"FAIL","actual":{"hard":1,"purple":true,"book":true,"purse":true,"c0":2,"stage":1,"t0":5,"t1":0,"c1":0,"cycle":1,"seed":"69FR MZ0W","type":3},"expected":"cycle1 starting kit, Purple Heart only, no cards","label":"actual key restores Judas kit"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] DONE {"actual":{"hard":1,"purple":true,"book":true,"purse":true,"c0":2,"stage":1,"t0":5,"t1":0,"c1":0,"cycle":1,"seed":"69FR MZ0W","type":3},"reason":"normal save then cold Continue"}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":1}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":1}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":2}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":2}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":3}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":3}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":3}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] slot {"slot":3}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] ASSERT {"label":"cold Continue retains Judas reset kit","result":"PASS","expected":"compare SAME seed with saved cycle1 kit","actual":{"type":3,"hard":1,"book":true,"stage":1,"seed":"69FR MZ0W","cycle":1,"purple":true,"c1":0,"purse":true,"t1":0,"t0":5,"c0":2}}
+[INFO] - Lua Debug: [JUDAS SLOTS QA] DONE {"reason":"read-only Continue snapshot"}

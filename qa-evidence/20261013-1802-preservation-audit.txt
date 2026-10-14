@@ -1,0 +1,6 @@
+Isaac-PC connected. Process inspection: retained old PowerShell2060 plus current inspection; no Isaac/overlap observed.
+Independent comparison against full1732 entering backup:
+AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+No Windows writes, launch, audio/runtime changes or save mutation this lane. Prior pre0002 original living-chain mod-data gap is not resolved by this comparison.

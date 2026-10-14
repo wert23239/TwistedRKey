@@ -1,0 +1,31 @@
+Actual game: supported REPENTOGON1.1.3/J273, positively selected slot3 Hard.
+10 PASS / 0 FAIL valid assertions, 9 native-room/key plus 1 cold Continue.
+Generated native floor rooms and scripted real-engine kills; NOT organic movement/combat/raw input.
+Initial seed AKNZ L603 stopped after 3 combat rooms on empty trap default room765: archived room-empty-fixture.log; no production regression conclusion. Revised helper skips empty rooms; second seed3PWL28FM completed five real native awards.
+Backup: C:\Users\perfe\IsaacResumedBackup-20261013-0802
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [ROOM QA] slot {"slot":3}
+[INFO] - Lua Debug: [ROOM QA] start {"type":0,"seed":"86DC Z4MA","continued":false,"difficulty":1}
+[INFO] - Lua Debug: [ROOM QA] start {"type":1,"seed":"3PWL 28FM","continued":false,"difficulty":1}
+[INFO] - Lua Debug: [ROOM QA] targets {"indices":[83,71,108,123,124,72],"count":6}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"cycle":0,"charge":0,"red":8,"stage":1,"pocket":639,"rooms":0,"soul":0,"rotten":0,"yum":true},"expected":"rooms0","label":"fresh room counter"}
+[INFO] - Lua Debug: [ROOM QA] native-clean-award {"clears":1,"state":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":0,"yum":true},"index":83}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"clears":1,"state":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":0,"yum":true},"index":83},"expected":"rooms\/charge1 rotten0","label":"native room 1"}
+[INFO] - Lua Debug: [ROOM QA] native-clean-award {"clears":2,"state":{"cycle":0,"charge":2,"red":8,"stage":1,"pocket":639,"rooms":2,"soul":0,"rotten":0,"yum":true},"index":71}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"clears":2,"state":{"cycle":0,"charge":2,"red":8,"stage":1,"pocket":639,"rooms":2,"soul":0,"rotten":0,"yum":true},"index":71},"expected":"rooms\/charge2 rotten0","label":"native room 2"}
+[INFO] - Lua Debug: [ROOM QA] native-clean-award {"clears":3,"state":{"cycle":0,"charge":3,"red":8,"stage":1,"pocket":639,"rooms":3,"soul":0,"rotten":0,"yum":true},"index":108}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"clears":3,"state":{"cycle":0,"charge":3,"red":8,"stage":1,"pocket":639,"rooms":3,"soul":0,"rotten":0,"yum":true},"index":108},"expected":"rooms\/charge3 rotten0","label":"native room 3"}
+[INFO] - Lua Debug: [ROOM QA] native-clean-award {"clears":4,"state":{"cycle":0,"charge":0,"red":8,"stage":1,"pocket":639,"rooms":0,"soul":0,"rotten":1,"yum":true},"index":123}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"clears":4,"state":{"cycle":0,"charge":0,"red":8,"stage":1,"pocket":639,"rooms":0,"soul":0,"rotten":1,"yum":true},"index":123},"expected":"rooms\/charge0 rotten1","label":"native room 4"}
+[INFO] - Lua Debug: [ROOM QA] native-clean-award {"clears":5,"state":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":1,"yum":true},"index":124}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"clears":5,"state":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":1,"yum":true},"index":124},"expected":"rooms\/charge1 rotten1","label":"native room 5"}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":1,"yum":true},"expected":"rooms1 rotten1","label":"revisit clear room no charge"}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"cycle":0,"charge":1,"red":8,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":1,"yum":true},"expected":"unchanged rotten\/rooms","label":"external manual Yuck rejected"}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"result":"PASS","actual":{"cycle":1,"charge":1,"red":6,"stage":1,"pocket":639,"rooms":1,"soul":0,"rotten":0,"yum":true},"expected":"stage1 cycle1 rooms1 Yum\/pocketYuck","label":"actual Twisted restores Maggy room progress"}
+[INFO] - Lua Debug: [ROOM QA] DONE {"reason":"five actual native clean awards, revisit, external Yuck, actual key; scripted engine kills NOT organic input\/combat"}
+[INFO] - Lua Debug: [ROOM QA] slot {"slot":3}
+[INFO] - Lua Debug: [ROOM QA] ASSERT {"expected":"same3PWL28FM HardMaggy cycle1 rooms\/charge1 Yum\/pocketYuck","actual":{"rooms":1,"seed":"3PWL 28FM","difficulty":1,"cycle":1,"pocket":639,"yum":true,"charge":1,"type":1},"result":"PASS","label":"cold Continue retains actual Maggy progress"}
+[INFO] - Lua Debug: [ROOM QA] DONE {"reason":"read-only cold Continue observation"}
+

@@ -1,0 +1,21 @@
+Oct13 19:02 lane — NEW Undead Bird lifecycle composition source QA
+10/10 MOCK COMPOSITION contracts PASS using actual custom_items.lua and character_mechanics.lua.
+Engine entities, damage, serialization boundary and callback dispatch mocked; NOT native gameplay acceptance.
+1 fresh Eve zero budget
+2 damage persisted through production Mechanics Save
+3 one spawn per live effect
+4 replaced-room cache cleared; newly spawned effect advances via changed movement
+5 serialized next-room budget preserved by OnGameStart(true)
+6 reloaded effect associates live owner and requests contact damage
+7 POST_NEW_ROOM after Continue consumes budget: ORDERING CHARACTERIZATION, NOT engine ordering
+8 fresh restart discards prior saved budget
+9 Twisted restart clears mechanics bird budget
+10 two-player budgets independent
+Initial missing mock RemoveCollectible method corrected in mock only; no production fix.
+Native callback ordering may decrement budget if POST_NEW_ROOM follows saved-state load. No native defect/repair conclusion.
+Reproducible: tests/undead-bird-lifecycle.lua, Lupa via tmp/isaac-lua-env/bin/python from checkout.
+Nodes/status: Isaac-PC connected. Processes: retained PowerShell2060 plus current inspection; no Isaac/no overlap observed.
+Independent full1832 entering backup audit: AUDIT_FILES=70 MISMATCHES=0 GAME_RUNNING=False HELPER_PRESENT=False.
+No Windows writes, game launches, save/audio/options/runtime mutations, TV or known-crash helper retries.
+Prior native bird contact and lifetime coverage retained, not replayed. Native changed-movement nextroom/Continue/key reset UNVERIFIED.
+Original pre0002 living-chain mod-data preservation gap remains unresolved.

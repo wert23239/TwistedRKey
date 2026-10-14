@@ -1,0 +1,37 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Game Version: J273 
+[INFO] - Binding of Isaac: Repentance+ v1.9.7.12.J273
+[INFO] - Lua Debug: [CHAIN TRACE] slot {"slot":3}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":241,"case":1,"event":0}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 1 and native event 0","actual":{"count":1,"marks":{"moms_heart":true},"seed":"MZ34 RR8V"},"label":"moms_heart native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"Basement1, cycle1, count1","actual":{"stage":1,"count":1,"cycles":1},"label":"actual Twisted use retains first native check"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":234,"case":2,"event":1}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 2 and native event 1","actual":{"count":2,"marks":{"isaac_boss":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"isaac_boss native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":375,"case":3,"event":2}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 3 and native event 2","actual":{"count":3,"marks":{"isaac_boss":true,"satan":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"satan native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":2137,"case":4,"event":3}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 4 and native event 3","actual":{"count":4,"marks":{"boss_rush":true,"isaac_boss":true,"satan":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"boss_rush native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":234,"case":5,"event":4}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 5 and native event 4","actual":{"count":5,"marks":{"satan":true,"boss_rush":true,"isaac_boss":true,"blue_baby":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"blue_baby native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":266,"case":6,"event":5}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 6 and native event 5","actual":{"count":6,"marks":{"satan":true,"the_lamb":true,"boss_rush":true,"isaac_boss":true,"blue_baby":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"the_lamb native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":1086,"case":7,"event":6}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 7 and native event 6","actual":{"count":7,"marks":{"mega_satan":true,"satan":true,"the_lamb":true,"boss_rush":true,"isaac_boss":true,"blue_baby":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"mega_satan native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":379,"case":8,"event":9}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 8 and native event 9","actual":{"count":8,"marks":{"hush":true,"mega_satan":true,"satan":true,"the_lamb":true,"boss_rush":true,"isaac_boss":true,"blue_baby":true,"moms_heart":true},"seed":"MZ34 RR8V"},"label":"hush native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":466,"case":9,"event":12}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 9 and native event 12","actual":{"count":9,"marks":{"hush":true,"mega_satan":true,"boss_rush":true,"delirium":true,"moms_heart":true,"blue_baby":true,"isaac_boss":true,"the_lamb":true,"satan":true},"seed":"MZ34 RR8V"},"label":"delirium native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN TRACE] native {"tick":512,"case":10,"event":13}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"count 10 and native event 13","actual":{"count":10,"marks":{"hush":true,"mega_satan":true,"boss_rush":true,"delirium":true,"mother":true,"moms_heart":true,"blue_baby":true,"isaac_boss":true,"the_lamb":true,"satan":true},"seed":"MZ34 RR8V"},"label":"mother native single-chain accumulation"}
+[INFO] - Lua Debug: [CHAIN QA] {"result":"PASS","expected":"10 checks, no badge, >=1 actual Twisted use","actual":{"count":10,"cycles":1},"label":"ten checks withhold Beast-LAST badge"}
+[INFO] - Lua Debug: [CHAIN TRACE] STOP {"reason":"TEN CHECKS: finish actual Home\/Beast; menu\/cold reload still require separate observation"}
+[INFO] - Isaac has shut down successfully 
+[INFO] - Lua Debug: [FINALE TRACE] cold ten-check Continue {"cycles":1,"continued":true,"count":10,"ready":true,"seed":"MZ34 RR8V"}
+[INFO] - Lua Debug: [FINALE TRACE] generated Home {"type":0,"count":10,"rooms":[{"type":1,"name":"Isaac's Bedroom","variant":1,"index":84},{"type":1,"name":"Hallway","variant":2,"index":97},{"type":1,"name":"Living Room","variant":4,"index":109},{"type":1,"name":"Hallway","variant":2,"index":95},{"type":1,"name":"Mom's Bedroom","variant":3,"index":82},{"type":1,"name":"Closet R","variant":5,"index":98}],"stage":13}
+[INFO] - Isaac has shut down successfully 
+[INFO] - Lua Debug: [FINALE TRACE] Home/fight progression {"tick":650,"entities":[{"x":320.0,"type":1,"subtype":6,"y":200.0,"variant":0},{"x":320.0,"type":960,"subtype":0,"y":160.0,"variant":4},{"x":320.0,"type":1000,"subtype":2,"y":320.0,"variant":74},{"x":320.0,"type":960,"subtype":0,"y":480.0,"variant":3},{"x":80.771858215332,"type":1000,"subtype":0,"y":92.325607299805,"variant":68},{"x":312.0,"type":950,"subtype":0,"y":200.0,"variant":0},{"x":312.0,"type":1000,"subtype":0,"y":200.0,"variant":169}],"room":109,"stage":13}
+[ASSERT] - Room Data is NULL in RoomTransition::change_room.
+[INFO] - Lua stack trace:
+[INFO] - Caught exception, writing minidump...

@@ -1,0 +1,48 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+True
+[INFO] - Lua Debug: [LATE SLOT] 3 selected=true raw=3
+[INFO] - Lua Debug: [LATE FIXTURE] Mother [{"type":912,"subtype":0,"variant":0},{"type":912,"subtype":1,"variant":0},{"type":912,"subtype":2,"variant":0},{"type":912,"subtype":3,"variant":0}]
+[INFO] - Lua Debug: [LATE EVENT] 13
+[INFO] - Lua Debug: [LATE QA] {"label":"Mother reward","result":"PASS","actual":{"stage":8,"roomType":5,"bosses":[{"type":912,"subtype":0,"variant":0},{"type":912,"subtype":1,"variant":0},{"type":912,"subtype":2,"variant":0},{"type":912,"subtype":3,"variant":0}],"keys":1,"clear":true,"stageType":4},"expected":"generated boss clear yields exactly one key"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Mother native check","result":"PASS","actual":{"marks":{"mother":true},"chainCount":1},"expected":"native completion credits mother"}
+[INFO] - Lua Debug: [LATE FIXTURE] Delirium [{"type":412,"subtype":0,"variant":0}]
+[INFO] - Lua Debug: [LATE EVENT] 12
+[INFO] - Lua Debug: [LATE QA] {"label":"Delirium reward","result":"PASS","actual":{"stage":12,"roomType":5,"bosses":[{"type":412,"subtype":0,"variant":0}],"keys":1,"clear":true,"stageType":0},"expected":"generated boss clear yields exactly one key"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Delirium native check","result":"PASS","actual":{"marks":{"delirium":true},"chainCount":1},"expected":"native completion credits delirium"}
+[INFO] - Lua Debug: [LATE FIXTURE] Mega Satan [{"type":274,"subtype":0,"variant":1},{"type":274,"subtype":0,"variant":0},{"type":274,"subtype":0,"variant":2}]
+[INFO] - Lua Debug: [LATE EVENT] 6
+[INFO] - Lua Debug: [LATE QA] {"label":"Mega Satan reward","result":"FAIL","actual":{"stage":11,"roomType":5,"bosses":[{"type":274,"subtype":0,"variant":1},{"type":274,"subtype":0,"variant":0},{"type":274,"subtype":0,"variant":2}],"keys":0,"clear":true,"stageType":0},"expected":"generated boss clear yields exactly one key"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Mega Satan native check","result":"PASS","actual":{"marks":{"mega_satan":true},"chainCount":1},"expected":"native completion credits mega_satan"}
+[INFO] - Lua Debug: [LATE QA] DONE
+[INFO] - Lua Debug: [LATE SLOT] 3 selected=true raw=3
+[INFO] - Lua Debug: [LATE FIXTURE] Mega Satan [{"variant":1,"subtype":0,"type":274},{"variant":0,"subtype":0,"type":274},{"variant":2,"subtype":0,"type":274}]
+[INFO] - Lua Debug: [LATE EVENT] 6
+[INFO] - Lua Debug: [LATE QA] {"result":"PASS","label":"Mega Satan reward","actual":{"roomType":5,"bosses":[{"variant":1,"subtype":0,"type":274},{"variant":0,"subtype":0,"type":274},{"variant":2,"subtype":0,"type":274}],"stageType":0,"keys":1,"stage":11,"clear":true},"expected":"generated boss clear yields exactly one key"}
+[INFO] - Lua Debug: [LATE QA] {"result":"PASS","label":"Mega Satan native check","actual":{"marks":{"mega_satan":true},"chainCount":1},"expected":"native completion credits mega_satan"}
+[INFO] - Lua Debug: [LATE PORTALS] [{"variant":1,"index":157,"sprite":"gfx\/grid\/VoidTrapdoor.anm2","state":1}]
+[INFO] - Lua Debug: [LATE QA] {"result":"PASS","label":"Mega post-key chain","actual":{"cycles":1,"stage":1,"marks":{"mega_satan":true}},"expected":"key usable after native Mega completion; Basement I, cycle1, Mega retained"}
+[INFO] - Lua Debug: [LATE QA] DONE
+
+
+INITIAL INVALID FIXTURES (NOT PRODUCTION REGRESSIONS):
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - Lua Debug: [LATE FIXTURE] Mother []
+[INFO] - Lua Debug: [LATE QA] {"label":"Mother reward","expected":"generated boss clear yields exactly one key","actual":{"stageType":4,"roomType":5,"bosses":[],"stage":8,"keys":0,"clear":true},"result":"FAIL"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Mother native check","expected":"native completion credits mother","actual":{"chainCount":0,"marks":[]},"result":"FAIL"}
+[INFO] - Lua Debug: [LATE FIXTURE] Delirium [{"type":412,"variant":0,"subtype":0}]
+[INFO] - Lua Debug: [LATE QA] {"label":"Delirium reward","expected":"generated boss clear yields exactly one key","actual":{"stageType":0,"roomType":5,"bosses":[{"type":412,"variant":0,"subtype":0}],"stage":12,"keys":0,"clear":false},"result":"FAIL"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Delirium native check","expected":"native completion credits delirium","actual":{"chainCount":0,"marks":[]},"result":"FAIL"}
+[INFO] - [warn] StageID 0 Room type 5, variant 666 not found!
+[INFO] - [warn] StageID 0 Room type 5, variant 666, mode -1 not found!
+[INFO] - Lua Debug: [LATE FIXTURE] Mega Satan []
+[INFO] - Lua Debug: [LATE QA] {"label":"Mega Satan reward","expected":"generated boss clear yields exactly one key","actual":{"stageType":0,"roomType":1,"bosses":[],"stage":11,"keys":0,"clear":true},"result":"FAIL"}
+[INFO] - Lua Debug: [LATE QA] {"label":"Mega Satan native check","expected":"native completion credits mega_satan","actual":{"chainCount":0,"marks":[]},"result":"FAIL"}
+[INFO] - Lua Debug: [LATE QA] DONE
+
+
+Preservation: normal CloseMainWindow; RESTORED_SHA256_FILES=62; HELPER_PRESENT=False; GAME_RUNNING=False. Full logs/QA-final saves archived in C:\Users\perfe\IsaacResumedBackup-20261013-0302. Native/audio/runtime unmodified except reversible QA save/mod-helper activity.
+

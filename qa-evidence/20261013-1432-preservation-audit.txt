@@ -1,0 +1,9 @@
+Entering1402 independent audit:70files/0mismatches/gameclosed/helpersabsent.
+Full1432 backup BEFORE any fixture mutation:70files.
+After engine self-exit: full crash log/executedmain/QA-final four trees archived.
+RESTORED_SHA256_FILES=70
+AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+Audio/options/supported REPENTOGON runtime preserved by full entering restore.
+Original pre0002 living-chain mod-data backup gap remains; this certifies entering1432 only.

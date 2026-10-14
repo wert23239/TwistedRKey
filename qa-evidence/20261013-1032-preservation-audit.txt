@@ -1,0 +1,13 @@
+Entering backup C:\Users\perfe\IsaacResumedBackup-20261013-1032:70 files (native/config/mod-data/mod/extra-save).
+Preflight independent audit of entering1002:70/70,0mismatches,gameclosed,helperabsent.
+After final successful native menu/save exit and normal windowClose:
+RESTORED_SHA256_FILES=70
+HELPER_PRESENT=False
+GAME_RUNNING=False
+Independent read-only audit:
+AUDIT_FILES=70 MISMATCHES=0
+GAME_RUNNING=False
+HELPER_PRESENT=False
+Final log: Isaac has shut down successfully.
+Audio/options and supported runtime unchanged. Original pre0002 living-chain mod-data gap is NOT repaired by this audit.
+Candidate source+helpers archived; Windows installed mod restored to entering original. Local deferred Cain source remains verified and awaits packaging/deployment.

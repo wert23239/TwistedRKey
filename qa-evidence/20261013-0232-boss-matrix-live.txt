@@ -1,0 +1,46 @@
+Node: dbdb5af8e74a315eb0648cd8008992de761da07f346c1690888c95c5a2b745d0
+Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.
+
+[INFO] - 	C:\Program Files (x86)\Steam\steamapps\common\The Binding of Isaac Rebirth\Repentogon\isaac-ng.exe
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata1.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 1 selected=false raw=1
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata1.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 1 selected=false raw=1
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata2.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 2 selected=false raw=2
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata2.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 2 selected=false raw=2
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 3 selected=false raw=3
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 3 selected=false raw=3
+[INFO] - Lua Debug: [MATRIX SLOT] 1 selected=false raw=0
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata1.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 1 selected=true raw=1
+[INFO] - Loading Repentance PersistentGameData from disk: C:\Users\perfe/Documents/My Games/Binding of Isaac Repentance+/Repentogon/rgon_persistentgamedata3.dat.
+[INFO] - Lua Debug: [MATRIX SLOT] 3 selected=true raw=3
+[INFO] - Lua Debug: [MATRIX FIXTURE] Mom [{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":10},{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":0}]
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Mom reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":0,"bosses":[{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":10},{"type":45,"subtype":2,"variant":0},{"type":45,"subtype":2,"variant":0}],"roomType":5,"stage":6,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX FIXTURE] Isaac [{"type":102,"subtype":0,"variant":0}]
+[INFO] - Lua Debug: [MATRIX EVENT] 1
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Isaac reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":1,"bosses":[{"type":102,"subtype":0,"variant":0}],"roomType":5,"stage":10,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Isaac native check","expected":"native completion credits isaac_boss","actual":{"chainCount":1,"marks":{"isaac_boss":true}},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX FIXTURE] Satan [{"type":84,"subtype":0,"variant":0}]
+[INFO] - Lua Debug: [MATRIX EVENT] 2
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Satan reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":0,"bosses":[{"type":84,"subtype":0,"variant":0}],"roomType":5,"stage":10,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Satan native check","expected":"native completion credits satan","actual":{"chainCount":1,"marks":{"satan":true}},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX FIXTURE] Blue Baby [{"type":102,"subtype":0,"variant":1}]
+[INFO] - Lua Debug: [MATRIX EVENT] 4
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Blue Baby reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":1,"bosses":[{"type":102,"subtype":0,"variant":1}],"roomType":5,"stage":11,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Blue Baby native check","expected":"native completion credits blue_baby","actual":{"chainCount":1,"marks":{"blue_baby":true}},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX FIXTURE] Lamb [{"type":273,"subtype":0,"variant":0}]
+[INFO] - Lua Debug: [MATRIX EVENT] 5
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Lamb reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":0,"bosses":[{"type":273,"subtype":0,"variant":0}],"roomType":5,"stage":11,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Lamb native check","expected":"native completion credits the_lamb","actual":{"chainCount":1,"marks":{"the_lamb":true}},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX FIXTURE] Hush [{"type":102,"subtype":0,"variant":2}]
+[INFO] - Lua Debug: [MATRIX EVENT] 9
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Hush reward","expected":"generated boss clear yields exactly one key","actual":{"keys":1,"stageType":0,"bosses":[{"type":102,"subtype":0,"variant":2}],"roomType":5,"stage":9,"clear":true},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] {"label":"Hush native check","expected":"native completion credits hush","actual":{"chainCount":1,"marks":{"hush":true}},"result":"PASS"}
+[INFO] - Lua Debug: [MATRIX QA] DONE
+[INFO] - Isaac has shut down successfully 
+

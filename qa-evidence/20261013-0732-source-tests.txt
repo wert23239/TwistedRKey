@@ -1,0 +1,10 @@
+tests/beast-early-reset-experiment.lua PASS
+tests/beast-home-gate.lua PASS
+tests/chain-tracker.lua PASS
+tests/character-mechanics.lua PASS
+tests/completion-overlay.lua PASS
+tests/item-exclusions.lua PASS
+tests/needle-floor.lua PASS
+tests/pool-cost.lua PASS
+tests/strip-innate.lua PASS
+production and health helper Lua syntax PASS
