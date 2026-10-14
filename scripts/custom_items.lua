@@ -21,7 +21,9 @@ function Items:Apply(player, restore)
     if restore then
         local kit = (self.tracker.data._startingKits or {})[tostring(designKind)]
         if kit then
-            for _, id in ipairs(kit.items) do self:Give(player, id) end
+            for _, id in ipairs(kit.items) do
+                if kind ~= PlayerType.PLAYER_MAGDALENE or id ~= CollectibleType.COLLECTIBLE_YUM_HEART then self:Give(player, id) end
+            end
             for _, id in ipairs(kit.trinkets) do
                 if not player:HasTrinket(id) then player:AddTrinket(id, false) end
             end

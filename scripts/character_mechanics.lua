@@ -52,14 +52,14 @@ end
 
 function Mechanics:Apply(player, restoreKit)
     local kind = player:GetPlayerType()
-    local baseline = kind == PlayerType.PLAYER_MAGDALENE and CollectibleType.COLLECTIBLE_YUM_HEART
-        or kind == PlayerType.PLAYER_CAIN and CollectibleType.COLLECTIBLE_LUCKY_FOOT
+    local baseline = kind == PlayerType.PLAYER_CAIN and CollectibleType.COLLECTIBLE_LUCKY_FOOT
         or kind == PlayerType.PLAYER_JUDAS and CollectibleType.COLLECTIBLE_BOOK_OF_BELIAL
     if restoreKit and baseline and not player:HasCollectible(baseline) then
         local config = Isaac.GetItemConfig():GetCollectible(baseline)
         player:AddCollectible(baseline, config and config.MaxCharges or 0, false)
     end
     if kind == PlayerType.PLAYER_MAGDALENE then
+        if player:HasCollectible(CollectibleType.COLLECTIBLE_YUM_HEART) then player:RemoveCollectible(CollectibleType.COLLECTIBLE_YUM_HEART) end
         if player:GetActiveItem(POCKET) ~= YUCK then player:SetPocketActiveItem(YUCK, POCKET, true) end
         player:SetActiveCharge(self:State(player).rooms, POCKET)
     elseif kind == PlayerType.PLAYER_CAIN then
